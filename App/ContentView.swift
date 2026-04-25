@@ -6,6 +6,9 @@ struct ContentView: View {
     @EnvironmentObject private var app: AppViewModel
     @EnvironmentObject private var hearing: HearingEngine
     @State private var showingSettings = false
+    @AppStorage(BlindGuyFeatureKey.spatial3DBubble) private var spatial3DBubble: Bool = true
+    @AppStorage(BlindGuyFeatureKey.payloadHUD) private var showPayloadHUD: Bool = true
+    @AppStorage(BlindGuyFeatureKey.haptics) private var hapticsOn: Bool = true
 
     var body: some View {
         Group {
@@ -71,7 +74,7 @@ struct ContentView: View {
                             Image(systemName: hearing.isSpatialHeadphoneRouteActive ? "headphones" : "speaker.wave.2")
                                 .font(.system(size: 10, weight: .bold))
                             Text(
-                                hearing.isSpatialHeadphoneRouteActive
+                                (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble)
                                 ? "3D BUBBLE"
                                 : "SPEAKER 2D"
                             )
@@ -80,15 +83,18 @@ struct ContentView: View {
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
-                            (hearing.isSpatialHeadphoneRouteActive ? Color.cyan : Color.orange)
+                            ((hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? Color.cyan : Color.orange)
                                 .opacity(0.12)
                         )
                         .cornerRadius(20)
                         .accessibilityElement(children: .combine)
                         .accessibilityLabel(
-                            hearing.isSpatialHeadphoneRouteActive
+                            (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble)
                             ? "Virtual spatial audio bubble active with headphones"
-                            : "Use stereo headphones or AirPods for a three D audio bubble; tones are wider on the built in speaker"
+                            : (spatial3DBubble
+                               ? "Use stereo headphones or AirPods for a three D audio bubble; tones are wider on the built in speaker"
+                               : "Three D audio bubble is off in Settings; using stereo pan only"
+                            )
                         )
 
                         Button(action: { showingSettings = true }) {
@@ -128,8 +134,8 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 20)
 
-                    if app.modelAvailable, let s = app.session {
-                        PayloadHUD(session: s)
+                    if showPayloadHUD, app.modelAvailable, let s = app.session {
+                        PayloadHUD(session: s, hapticsEnabled: hapticsOn)
                             .padding(.horizontal, 20)
                     }
 

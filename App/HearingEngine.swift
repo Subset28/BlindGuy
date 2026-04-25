@@ -65,6 +65,11 @@ final class HearingEngine: ObservableObject {
         }
     }
 
+    /// Re-apply 3D rendering and tone graph after **hearingTones** or **spatial3DBubble** toggles in Settings (avoids a global `UserDefaults` observer that would also fire for unrelated keys).
+    func applyFeatureTogglesFromUserDefaults() {
+        refreshHeadphoneStateAndRendering()
+    }
+
     init() {
         avEngine.attach(environment3D)
         avEngine.connect(environment3D, to: avEngine.mainMixerNode, format: nil)
@@ -147,14 +152,15 @@ final class HearingEngine: ObservableObject {
     }
 
     private func refreshHeadphoneStateAndRendering() {
-        let spatial = Self.isImmersiveStereoOutputRoute
+        let routeSpatial = Self.isImmersiveStereoOutputRoute
+        let use3DBubbleHRTF = routeSpatial && BlindGuyFeatureFlags.spatial3DBubble
         DispatchQueue.main.async { [weak self] in
-            self?.isSpatialHeadphoneRouteActive = spatial
+            self?.isSpatialHeadphoneRouteActive = routeSpatial
         }
         engineQueue.async { [weak self] in
             guard let self else { return }
             if #available(iOS 11.0, *) {
-                self.environment3D.renderingAlgorithm = spatial ? .HRTF : .equalPowerPanning
+                self.environment3D.renderingAlgorithm = use3DBubbleHRTF ? .HRTF : .equalPowerPanning
             }
             self.replayClonesForRouteChangeLocked()
         }
@@ -261,39 +267,57 @@ final class HearingEngine: ObservableObject {
     }
 
     private func handleFrame(_ frame: FramePayload) {
-        let ids = Set(frame.objects.map(\.objectId))
-        for (id, clone) in clones where !ids.contains(id) {
-            clone.stop()
-            freeEnvironmentBuses.append(clone.inputBus)
-            clones.removeValue(forKey: id)
-        }
-        for obj in frame.objects {
-            if let clone = clones[obj.objectId] {
-                clone.updatePosition(
-                    pan: Float(obj.panValue),
-                    distance: Float(obj.distanceM)
-                )
-                if obj.priority.uppercased() == "HIGH" {
-                    speakIfAllowed(obj: obj)
-                }
-            } else {
-                let freq = Self.frequency(for: obj.objectClass)
-                guard let bus = takeEnvironmentBus() else { continue }
-                let clone = AudioClone(
-                    engine: avEngine,
-                    environment: environment3D,
-                    inputBus: bus,
-                    id: obj.objectId,
-                    frequency: freq
-                )
-                clones[obj.objectId] = clone
-                clone.start()
-                clone.updatePosition(
-                    pan: Float(obj.panValue),
-                    distance: Float(obj.distanceM)
-                )
-                if obj.priority.uppercased() == "HIGH" {
-                    speakIfAllowed(obj: obj)
+        let routeSpatial = Self.isImmersiveStereoOutputRoute
+        let use3DPos = routeSpatial && BlindGuyFeatureFlags.spatial3DBubble
+        let tonesOn = BlindGuyFeatureFlags.hearingTones
+
+        if !tonesOn {
+            let toRemove = Array(clones.values)
+            for clone in toRemove {
+                freeEnvironmentBuses.append(clone.inputBus)
+                clone.stop()
+            }
+            clones.removeAll()
+            for obj in frame.objects where obj.priority.uppercased() == "HIGH" {
+                speakIfAllowed(obj: obj)
+            }
+        } else {
+            let ids = Set(frame.objects.map(\.objectId))
+            for (id, clone) in clones where !ids.contains(id) {
+                clone.stop()
+                freeEnvironmentBuses.append(clone.inputBus)
+                clones.removeValue(forKey: id)
+            }
+            for obj in frame.objects {
+                if let clone = clones[obj.objectId] {
+                    clone.updatePosition(
+                        pan: Float(obj.panValue),
+                        distance: Float(obj.distanceM),
+                        use3D: use3DPos
+                    )
+                    if obj.priority.uppercased() == "HIGH" {
+                        speakIfAllowed(obj: obj)
+                    }
+                } else {
+                    let freq = Self.frequency(for: obj.objectClass)
+                    guard let bus = takeEnvironmentBus() else { continue }
+                    let clone = AudioClone(
+                        engine: avEngine,
+                        environment: environment3D,
+                        inputBus: bus,
+                        id: obj.objectId,
+                        frequency: freq
+                    )
+                    clones[obj.objectId] = clone
+                    clone.start()
+                    clone.updatePosition(
+                        pan: Float(obj.panValue),
+                        distance: Float(obj.distanceM),
+                        use3D: use3DPos
+                    )
+                    if obj.priority.uppercased() == "HIGH" {
+                        speakIfAllowed(obj: obj)
+                    }
                 }
             }
         }
@@ -317,6 +341,7 @@ final class HearingEngine: ObservableObject {
     }
 
     private func speakIfAllowed(obj: DetectedObjectDTO) {
+        if !BlindGuyFeatureFlags.hearingTTS { return }
         if suppressTTSDuringCloneRebuild { return }
         let now = Date()
         if let last = lastSpoken[obj.objectId], now.timeIntervalSince(last) < speakCooldownSeconds { return }
@@ -387,23 +412,29 @@ private final class AudioClone {
         }
     }
 
-    /// `pan` is horizontal stereo cue; `distance` is meters. Placed on a 2m-scale ring in front/around the user.
-    func updatePosition(pan: Float, distance: Float) {
+    /// `pan` is horizontal stereo cue; `distance` is meters. Placed on a 2m-scale ring in front/around the user when `use3D`.
+    func updatePosition(pan: Float, distance: Float, use3D: Bool) {
         let vol = max(0.05, min(1.0, 1.0 - (Double(distance) / 20.0)))
         let speed = max(0.8, min(1.5, 1.0 + (5.0 - Double(distance)) * 0.05))
         player.volume = vol
         varispeed.rate = Float(speed)
 
-        let d = max(0.1, min(40.0, Double(distance)))
-        // Virtual ring radius: farther objects sit slightly farther in the 3D stage (capped for stability).
-        let ring = Float(min(2.0, 0.6 + 4.0 / d))
-        let az = Double(pan) * (Double.pi * 0.5)
-        let x = ring * sin(Float(az))
-        let z = -ring * cos(Float(az))
-        if let m = player as? AVAudio3DMixing {
-            m.position = AVAudio3DPoint(x: x, y: 0, z: z)
+        if use3D {
+            let d = max(0.1, min(40.0, Double(distance)))
+            // Virtual ring radius: farther objects sit slightly farther in the 3D stage (capped for stability).
+            let ring = Float(min(2.0, 0.6 + 4.0 / d))
+            let az = Double(pan) * (Double.pi * 0.5)
+            let x = ring * sin(Float(az))
+            let z = -ring * cos(Float(az))
+            if let m = player as? AVAudio3DMixing {
+                m.position = AVAudio3DPoint(x: x, y: 0, z: z)
+            }
+        } else {
+            if let m = player as? AVAudio3DMixing {
+                m.position = AVAudio3DPoint(x: 0, y: 0, z: 0)
+            }
         }
-        // Fallback: still set stereo pan for paths where 3D isn’t applied (e.g. some built-in routes).
+        // Stereo pan: primary cue when 3D bubble is off (speaker) or user disabled HRTF bubble.
         player.pan = pan
     }
 

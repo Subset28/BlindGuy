@@ -8,10 +8,13 @@ import UIKit
 @MainActor
 public struct PayloadHUD: View {
     @ObservedObject public var session: BlindGuySession
+    /// When `false`, high-priority frame haptics are skipped (e.g. global haptics off in Settings).
+    public var hapticsEnabled: Bool
     @State private var lastHighHapticFrame: Int = -1
 
-    public init(session: BlindGuySession) {
+    public init(session: BlindGuySession, hapticsEnabled: Bool = true) {
         self._session = ObservedObject(wrappedValue: session)
+        self.hapticsEnabled = hapticsEnabled
     }
 
     public var body: some View {
@@ -35,6 +38,7 @@ public struct PayloadHUD: View {
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
             #if os(iOS)
             .onChange(of: p.frameId) { newId in
+                guard hapticsEnabled else { return }
                 guard let cur = session.lastPayload else { return }
                 let hasHigh = cur.objects.contains { $0.priority.uppercased() == "HIGH" }
                 if hasHigh, newId != lastHighHapticFrame {

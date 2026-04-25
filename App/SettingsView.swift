@@ -3,56 +3,61 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.presentationMode) var presentationMode
     @EnvironmentObject private var app: AppViewModel
+
+    @AppStorage(BlindGuyFeatureKey.spatial3DBubble) private var spatial3DBubble: Bool = true
+    @AppStorage(BlindGuyFeatureKey.hearingTones) private var hearingTones: Bool = true
+    @AppStorage(BlindGuyFeatureKey.hearingTTS) private var hearingTTS: Bool = true
+    @AppStorage(BlindGuyFeatureKey.haptics) private var haptics: Bool = true
+    @AppStorage(BlindGuyFeatureKey.payloadHUD) private var payloadHUD: Bool = true
+    @AppStorage(BlindGuyFeatureKey.lensTTS) private var lensTTS: Bool = true
     @AppStorage("blindguy.visionBridgeBaseURLString") private var bridgeURLString: String = "http://127.0.0.1:8765"
 
-    @State private var scanDistance: Double = 15.0
-    @State private var alertVolume: Double = 0.8
-    @State private var useHeadTracking = true
-    @State private var highThreatOnly = false
-    @State private var voiceOverGuidance = true
-    
     var body: some View {
         NavigationView {
             ZStack {
                 Color.black.edgesIgnoringSafeArea(.all)
-                
+
                 List {
                     Section {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Max Scan Distance: \(Int(scanDistance))m")
-                                .font(.headline)
-                            Slider(value: $scanDistance, in: 5...30, step: 1)
-                                .tint(.green)
-                        }
-                        .padding(.vertical, 4)
-                        
-                        Toggle("Head Tracking (AirPods Pro)", isOn: $useHeadTracking)
+                        Toggle("3D audio bubble (HRTF on headphones)", isOn: $spatial3DBubble)
                             .tint(.green)
-                            .font(.body)
                     } header: {
-                        Text("Spatial Radar Configuration")
+                        Text("Spatial audio")
                     } footer: {
-                        Text("Higher distance allows earlier detection but may increase background processing.")
+                        Text("When on and you use AirPods, wired, or similar stereo, tones use a binaural stage. When off, stereo pan is used only.")
                     }
-                    
+
                     Section {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Alert Volume: \(Int(alertVolume * 100))%")
-                                .font(.headline)
-                            Slider(value: $alertVolume, in: 0...1)
-                                .tint(.green)
-                        }
-                        .padding(.vertical, 4)
-                        
-                        Toggle("High Threat Alerts Only", isOn: $highThreatOnly)
+                        Toggle("Hearing tones (clones)", isOn: $hearingTones)
                             .tint(.green)
-                        
-                        Toggle("VoiceOver Haptic Feedback", isOn: $voiceOverGuidance)
+                        Toggle("Distance TTS (high-priority objects)", isOn: $hearingTTS)
                             .tint(.green)
                     } header: {
-                        Text("Audio & Alerts")
+                        Text("Hearing")
+                    } footer: {
+                        Text("Tones: looping audio per tracked object. TTS: spoken distance and class for high-priority items.")
                     }
-                    
+
+                    Section {
+                        Toggle("Haptics (scan, alerts)", isOn: $haptics)
+                            .tint(.green)
+                        Toggle("Payload HUD overlay", isOn: $payloadHUD)
+                            .tint(.green)
+                    } header: {
+                        Text("Haptics & display")
+                    } footer: {
+                        Text("Payload HUD is the on-screen object count and vision latency panel. Haptics also drive high-priority pulse when the HUD is shown.")
+                    }
+
+                    Section {
+                        Toggle("Lens smudge TTS", isOn: $lensTTS)
+                            .tint(.green)
+                    } header: {
+                        Text("Camera / vision")
+                    } footer: {
+                        Text("When the lens looks dirty, a short TTS can remind you to clean the camera. Independent of object distance TTS.")
+                    }
+
                     Section {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Python bridge (Mac / PC)")
@@ -83,7 +88,7 @@ struct SettingsView: View {
                             }
                         }) {
                             HStack {
-                                Text("System Permissions")
+                                Text("System permissions")
                                 Spacer()
                                 Image(systemName: "arrow.up.forward.app")
                                     .foregroundColor(.secondary)
@@ -92,9 +97,9 @@ struct SettingsView: View {
                     } header: {
                         Text("Privacy")
                     } footer: {
-                        Text("BlindGuy requires Camera and Motion permissions for object detection and head tracking.")
+                        Text("BlindGuy uses Camera and Motion for object detection and head tracking where enabled.")
                     }
-                    
+
                     Section {
                         HStack {
                             Text("Version")
@@ -102,17 +107,12 @@ struct SettingsView: View {
                             Text("1.0.0 (Academies Hacks)")
                                 .foregroundColor(.secondary)
                         }
-                        
-                        Button("Re-watch Onboarding") {
-                            // Logic to reset AppStorage would go here
-                        }
                     } header: {
                         Text("Information")
                     }
                 }
                 .listStyle(InsetGroupedListStyle())
                 .onAppear {
-                    // Set list background transparency in SwiftUI is tricky, but we can use this for the theme
                     UITableView.appearance().backgroundColor = .clear
                 }
             }
@@ -129,6 +129,12 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onChange(of: spatial3DBubble) { _, _ in
+            app.hearing.applyFeatureTogglesFromUserDefaults()
+        }
+        .onChange(of: hearingTones) { _, _ in
+            app.hearing.applyFeatureTogglesFromUserDefaults()
+        }
     }
 
     private func applyBridgeURL() {

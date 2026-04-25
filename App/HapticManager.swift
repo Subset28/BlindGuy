@@ -22,25 +22,35 @@ class HapticManager {
         impactHeavy.prepare()
         notification.prepare()
     }
+
+    private static var hapticsOn: Bool {
+        let d = UserDefaults.standard
+        if d.object(forKey: BlindGuyFeatureKey.haptics) == nil { return true }
+        return d.bool(forKey: BlindGuyFeatureKey.haptics)
+    }
     
     /// Triggered when a new 'Audio Clone' enters the radar
     func triggerDiscovery() {
+        guard Self.hapticsOn else { return }
         impactLight.impactOccurred()
     }
     
     /// Triggered when an object enters the 'Warning' zone (< 5m)
     func triggerWarning() {
+        guard Self.hapticsOn else { return }
         impactMedium.impactOccurred()
     }
     
     /// Triggered for critical proximity or collision threats (< 2m)
     func triggerCriticalThreat() {
+        guard Self.hapticsOn else { return }
         notification.notificationOccurred(.error)
         impactHeavy.impactOccurred()
     }
     
     /// Haptic 'Heartbeat' that increases in frequency as threats approach
     func triggerHeartbeat(intensity: CGFloat) {
+        guard Self.hapticsOn else { return }
         // Implementation would use Core Haptics for custom CHHapticPattern
         impactLight.impactOccurred(intensity: intensity)
     }

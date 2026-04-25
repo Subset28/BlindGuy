@@ -12,6 +12,12 @@ This file is **append-only** (add new entries at the **top**). It records **visi
 
 ---
 
+## 2026-04-25
+
+- **Settings & `BlindGuyKit`:** SwiftUI **Settings** toggles (`UserDefaults` keys `blindguy.feature.*`) for **3D bubble**, **hearing tones**, **distance TTS**, **haptics**, **Payload HUD**, **lens smudge TTS**; **`HearingEngine`** / **`HapticManager`** / **`LensWarningAnnouncer`** / **`PayloadHUD`** respect them. **`applyFeatureTogglesFromUserDefaults()`** on tone or spatial toggle (no global defaults observer, so the bridge URL field does not thrash audio).
+
+---
+
 ## 2026-04-30
 
 - **Hearing (iOS `App/HearingEngine`):** **`AVAudioEnvironmentNode`** 3D “**audio bubble**” (HRTF on headphone / AirPods / BT stereo; **equal-power** on speaker) + **`AVAudioSession`** route observer + **`isSpatialHeadphoneRouteActive`**. Tones get **`AVAudio3DPoint`** on a virtual ring; TTS unchanged. **ContentView** chips “3D BUBBLE” / “SPEAKER 2D” + accessibility.
