@@ -5,7 +5,7 @@ import Foundation
 
 /// TTS-only hearing runtime: no spatial audio graph.
 /// High-priority lines are scheduled on a LIFO stack, normal lines on a FIFO queue.
-final class HearingEngine: ObservableObject {
+final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published private(set) var objectCount: Int = 0
     @Published private(set) var alertActive: Bool = false
     @Published private(set) var lastBridgeLatencyMs: Int?
@@ -44,8 +44,12 @@ final class HearingEngine: ObservableObject {
     private var lastSpeechAt: Date?
     private var lastPeopleGroupSpokenAt: Date?
     private var lastSpokenObjectCount: Int = 0
+    /// Consecutive processed frames with no high-confidence pool (debounces detection flicker).
+    private var consecutiveEmptyPoolFrames: Int = 0
     private var lastForcedSpeakAt: Date?
     private var mutedUntil: Date?
+    /// Mirrored from `AVSpeechSynthesizerDelegate` on the work queue — never use `main.sync` to read `isSpeaking`.
+    private var synthesizerIsSpeaking: Bool = false
     private var noDetectionsAnnouncedAt: Date?
     private var systemMessageKeys: Set<String> = []
     private var recentCriticalUtterances: [Date] = []
@@ -81,19 +85,21 @@ final class HearingEngine: ObservableObject {
         return defaultBridgeBaseURL
     }
 
-    init() {
+    override init() {
+        super.init()
+        speechSynth.delegate = self
         configureAudioSession()
     }
 
     deinit { stop() }
 
-    func reconfigure(vision: BlindGuySession?) {
+    @MainActor func reconfigure(vision: BlindGuySession?) {
         self.vision = vision
         isUsingOnDevicePayload = vision != nil
         rewire()
     }
 
-    func reconfigure(bridgeBase: URL) {
+    @MainActor func reconfigure(bridgeBase: URL) {
         UserDefaults.standard.set(bridgeBase.absoluteString, forKey: Self.bridgeURLKey)
         if vision == nil { rewire() }
     }
@@ -105,10 +111,13 @@ final class HearingEngine: ObservableObject {
     }
 
     func setVisionSpeechEnabled(_ enabled: Bool) {
-        speechGateLock.lock()
-        allowsFrameSpeech = enabled
-        speechGateLock.unlock()
-        if !enabled { hardFlushSpeech(reason: "speech disabled") }
+        workQueue.async { [weak self] in
+            guard let self else { return }
+            self.speechGateLock.lock()
+            self.allowsFrameSpeech = enabled
+            self.speechGateLock.unlock()
+            if !enabled { self.hardFlushSpeech(reason: "speech disabled") }
+        }
     }
 
     func muteFor(seconds: TimeInterval) {
@@ -146,7 +155,7 @@ final class HearingEngine: ObservableObject {
         }
     }
 
-    func start(vision: BlindGuySession?) {
+    @MainActor func start(vision: BlindGuySession?) {
         self.vision = vision
         isUsingOnDevicePayload = vision != nil
         isRunning = true
@@ -207,7 +216,7 @@ final class HearingEngine: ObservableObject {
         t.resume()
     }
 
-    private func rewire() {
+    @MainActor private func rewire() {
         pollTimer?.invalidate()
         pollTimer = nil
         cancellable = nil
@@ -239,7 +248,10 @@ final class HearingEngine: ObservableObject {
         let t0 = Date()
         URLSession.shared.dataTask(with: u) { [weak self] data, _, _ in
             let ms = Int(Date().timeIntervalSince(t0) * 1000)
-            DispatchQueue.main.async { self?.lastBridgeLatencyMs = ms }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                if self.lastBridgeLatencyMs != ms { self.lastBridgeLatencyMs = ms }
+            }
             guard let self, let data else { return }
             do {
                 let frame = try JSONDecoder().decode(FramePayload.self, from: data)
@@ -286,6 +298,11 @@ final class HearingEngine: ObservableObject {
             noDetectionsAnnouncedAt = nil
         }
 
+        if pool.isEmpty {
+            consecutiveEmptyPoolFrames = min(consecutiveEmptyPoolFrames + 1, 1_000)
+        } else {
+            consecutiveEmptyPoolFrames = 0
+        }
         if shouldFlushForSceneChange(newCount: pool.count) {
             hardFlushSpeech(reason: "scene changed")
         }
@@ -322,9 +339,11 @@ final class HearingEngine: ObservableObject {
 
         let alert = frame.objects.contains { $0.distanceM < 3.0 && abs($0.velocityMps) > 1.5 }
         lastSpokenObjectCount = pool.count
+        let newCount = frame.objects.count
         DispatchQueue.main.async { [weak self] in
-            self?.objectCount = frame.objects.count
-            self?.alertActive = alert
+            guard let self else { return }
+            if self.objectCount != newCount { self.objectCount = newCount }
+            if self.alertActive != alert { self.alertActive = alert }
         }
     }
 
@@ -410,14 +429,9 @@ final class HearingEngine: ObservableObject {
 
     private func drainSpeechBacklogIfPossible() {
         pruneExpiredQueuedItems()
-        guard let now = Optional(Date()) else { return }
+        let now = Date()
         if let t = lastSpeechAt, now.timeIntervalSince(t) < minIntervalAnySpeechSeconds { return }
-
-        var isSpeaking = false
-        DispatchQueue.main.sync {
-            isSpeaking = speechSynth.isSpeaking
-        }
-        if isSpeaking { return }
+        if synthesizerIsSpeaking { return }
 
         let next: SpeechItem?
         if let hi = highPriorityStack.popLast() {
@@ -442,9 +456,9 @@ final class HearingEngine: ObservableObject {
             case "clear":
                 u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.90
                 u.pitchMultiplier = 1.0
-            default: // calm
-                u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.84
-                u.pitchMultiplier = 0.96
+            default: // calm — slightly slower, lower pitch for a soothing read
+                u.rate = AVSpeechUtteranceDefaultSpeechRate * 0.80
+                u.pitchMultiplier = 0.92
             }
             u.preUtteranceDelay = 0.02
             self.speechSynth.speak(u)
@@ -483,6 +497,7 @@ final class HearingEngine: ObservableObject {
     }
 
     private func hardFlushSpeech(reason: String) {
+        synthesizerIsSpeaking = false
         highPriorityStack.removeAll()
         normalPriorityQueue.removeAll()
         queuedIds.removeAll()
@@ -517,7 +532,8 @@ final class HearingEngine: ObservableObject {
 
     private func shouldFlushForSceneChange(newCount: Int) -> Bool {
         let prev = lastSpokenObjectCount
-        if newCount == 0, prev > 0 { return true }
+        // Require two empty frames so single-frame detection gaps do not clear the whole queue and spam logs.
+        if newCount == 0, prev > 0, consecutiveEmptyPoolFrames >= 2 { return true }
         if prev >= 10, newCount <= 1 { return true }
         if prev - newCount >= 6, newCount * 2 < prev { return true }
         return false
@@ -635,28 +651,20 @@ final class HearingEngine: ObservableObject {
         return "\(Int(round(m))) meters"
     }
 
+    /// Picks the calmest-sounding system voice: best available quality for `en-US`, then soft-name and gender tie-breakers.
     private func preferredVoice() -> AVSpeechSynthesisVoice? {
-        let voices = AVSpeechSynthesisVoice.speechVoices().filter {
-            $0.language.hasPrefix("en")
-        }
+        let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("en") }
         if voices.isEmpty { return AVSpeechSynthesisVoice(language: "en-US") }
-        let grouped = voices.sorted {
-            let prefA = voiceLanguageRank($0.language)
-            let prefB = voiceLanguageRank($1.language)
-            if prefA != prefB { return prefA < prefB }
-            return $0.quality.rawValue > $1.quality.rawValue
-        }
+        let ranked = voices.sorted(by: compareVoicesForSoothing)
         switch BlindGuyFeatureFlags.ttsVoiceStyle {
         case "clear":
-            if let enhanced = grouped.first(where: { $0.quality == .enhanced }) { return enhanced }
-            return grouped.first
+            if let v = ranked.first(where: { $0.quality == .enhanced }) { return v }
+            return ranked.first
         case "compact":
-            if let compact = grouped.first(where: { $0.quality == .default }) { return compact }
-            return grouped.first
+            if let v = ranked.first(where: { $0.quality == .default }) { return v }
+            return ranked.first
         default:
-            if let premium = grouped.first(where: { $0.quality == .premium }) { return premium }
-            if let enhanced = grouped.first(where: { $0.quality == .enhanced }) { return enhanced }
-            return grouped.first
+            return ranked.first
         }
     }
 
@@ -664,6 +672,26 @@ final class HearingEngine: ObservableObject {
         if lang == "en-US" { return 0 }
         if lang == "en-GB" { return 1 }
         return 2
+    }
+
+    /// Higher score = more likely to sound soft and unhurried on-device (heuristic; `en-US` premium/enhanced still dominate).
+    private func soothingTiebreakScore(_ v: AVSpeechSynthesisVoice) -> Int {
+        var score = 0
+        let n = v.name.lowercased()
+        let softTokens = [
+            "samantha", "ava", "allison", "susan", "kate", "karen", "emma", "nora", "tessa", "serena", "catherine", "fiona", "siri", "nicky"
+        ]
+        if softTokens.contains(where: { n.contains($0) }) { score += 4 }
+        if #available(iOS 13.0, *), v.gender == .female { score += 1 }
+        return score
+    }
+
+    private func compareVoicesForSoothing(_ a: AVSpeechSynthesisVoice, _ b: AVSpeechSynthesisVoice) -> Bool {
+        let la = voiceLanguageRank(a.language)
+        let lb = voiceLanguageRank(b.language)
+        if la != lb { return la < lb }
+        if a.quality.rawValue != b.quality.rawValue { return a.quality.rawValue > b.quality.rawValue }
+        return soothingTiebreakScore(a) > soothingTiebreakScore(b)
     }
 
     private func phraseForObject(_ obj: DetectedObjectDTO, includeDistance: Bool) -> String {
@@ -717,5 +745,25 @@ final class HearingEngine: ObservableObject {
         guard !t.isEmpty else { return "Unknown" }
         if t.contains("_") { return t.replacingOccurrences(of: "_", with: " ") }
         return t.prefix(1).uppercased() + t.dropFirst().lowercased()
+    }
+
+    // MARK: - AVSpeechSynthesizerDelegate
+    // Keep speaking state on `workQueue` so the scheduler never calls `DispatchQueue.main.sync` (can deadlock the UI).
+    func speechSynthesizer(_: AVSpeechSynthesizer, didStart _: AVSpeechUtterance) {
+        workQueue.async { [weak self] in
+            self?.synthesizerIsSpeaking = true
+        }
+    }
+
+    func speechSynthesizer(_: AVSpeechSynthesizer, didFinish _: AVSpeechUtterance) {
+        workQueue.async { [weak self] in
+            self?.synthesizerIsSpeaking = false
+        }
+    }
+
+    func speechSynthesizer(_: AVSpeechSynthesizer, didCancel _: AVSpeechUtterance) {
+        workQueue.async { [weak self] in
+            self?.synthesizerIsSpeaking = false
+        }
     }
 }

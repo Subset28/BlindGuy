@@ -61,6 +61,21 @@ struct ContentView: View {
                     .padding(.bottom, 100)
                 }
             }
+            // Two-finger double-tap only on the main scroll area, not the whole window — a full-screen
+            // `UIView` overlay on `NavigationStack` was above the toolbar and swallowed log/settings taps.
+            .overlay(alignment: .topLeading) {
+                TwoFingerDoubleTapCapture {
+                    hearing.muteFor(seconds: 10)
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        speechMutedBanner = true
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            speechMutedBanner = false
+                        }
+                    }
+                }
+            }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -109,19 +124,6 @@ struct ContentView: View {
             }
         }
         .tint(BlindGuyTheme.accent)
-        .overlay(alignment: .topLeading) {
-            TwoFingerDoubleTapCapture {
-                hearing.muteFor(seconds: 10)
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    speechMutedBanner = true
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        speechMutedBanner = false
-                    }
-                }
-            }
-        }
         .safeAreaInset(edge: .bottom) { scanDock }
         .preferredColorScheme(.dark)
     }
@@ -400,7 +402,13 @@ private struct PrimaryDockButtonStyle: ButtonStyle {
 }
 
 #Preview {
-    ContentView()
-        .environmentObject(AppViewModel())
-        .environmentObject(HearingEngine())
+    struct PreviewHost: View {
+        @StateObject private var app = AppViewModel()
+        var body: some View {
+            ContentView()
+                .environmentObject(app)
+                .environmentObject(app.hearing)
+        }
+    }
+    return PreviewHost()
 }
