@@ -67,6 +67,30 @@ struct ContentView: View {
                                 .stroke(Color.green.opacity(0.3), lineWidth: 1)
                         )
 
+                        HStack(spacing: 6) {
+                            Image(systemName: hearing.isSpatialHeadphoneRouteActive ? "headphones" : "speaker.wave.2")
+                                .font(.system(size: 10, weight: .bold))
+                            Text(
+                                hearing.isSpatialHeadphoneRouteActive
+                                ? "3D BUBBLE"
+                                : "SPEAKER 2D"
+                            )
+                            .font(.system(size: 10, weight: .heavy))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            (hearing.isSpatialHeadphoneRouteActive ? Color.cyan : Color.orange)
+                                .opacity(0.12)
+                        )
+                        .cornerRadius(20)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(
+                            hearing.isSpatialHeadphoneRouteActive
+                            ? "Virtual spatial audio bubble active with headphones"
+                            : "Use stereo headphones or AirPods for a three D audio bubble; tones are wider on the built in speaker"
+                        )
+
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "gearshape.fill")
                                 .font(.title2)

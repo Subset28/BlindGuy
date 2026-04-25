@@ -1,22 +1,37 @@
 import AVFoundation
+import AVFAudio
 import Combine
 import Foundation
 import BlindGuyKit
 
 /// Drives the “auditory twin” audio clones from **`FramePayload`**: on-device `BlindGuySession.$lastPayload`
 /// or, if no on-device path, **GET `/frame`** on the Python bridge (default `http://127.0.0.1:8765`).
+///
+/// When **headphones, AirPods, or another stereo** output is active, tones are played through an
+/// **`AVAudioEnvironmentNode`** 3D “audio bubble” (HRTF when available) so direction is easier to
+/// place than raw stereo pan. TTS remains **on** as separate announcements; it uses system output
+/// and does not route into this graph (iOS does not expose AVSpeech through AVAudioEngine out of the box).
 final class HearingEngine: ObservableObject {
     @Published private(set) var objectCount: Int = 0
     @Published private(set) var alertActive: Bool = false
     @Published private(set) var lastBridgeLatencyMs: Int?
     @Published private(set) var isUsingOnDevicePayload: Bool = false
+    /// True when a stereo/headphone-style route (wired, AirPods, most BT stereo) is active — 3D bubble + HRTF.
+    @Published private(set) var isSpatialHeadphoneRouteActive: Bool = false
 
     private let speechSynth = AVSpeechSynthesizer()
     private var lastSpoken: [String: Date] = [:]
     private let speakCooldownSeconds: TimeInterval = 3.0
 
     private let avEngine = AVAudioEngine()
+    private let environment3D = AVAudioEnvironmentNode()
     private var clones: [String: AudioClone] = [:]
+    private var nextEnvironmentInputBus: AVAudioNodeBus = 0
+    private var freeEnvironmentBuses: [AVAudioNodeBus] = []
+    private let maxEnvironmentBuses: AVAudioNodeBus = 48
+    private var lastFrame: FramePayload?
+    private var suppressTTSDuringCloneRebuild = false
+    private var routeObserver: NSObjectProtocol?
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 0.066
     private let engineQueue = DispatchQueue(label: "com.blindguy.hearing.engine")
@@ -51,6 +66,12 @@ final class HearingEngine: ObservableObject {
     }
 
     init() {
+        avEngine.attach(environment3D)
+        avEngine.connect(environment3D, to: avEngine.mainMixerNode, format: nil)
+        environment3D.listenerPosition = AVAudio3DPoint(x: 0, y: 0, z: 0)
+        if #available(iOS 11.0, *) {
+            environment3D.renderingAlgorithm = .HRTF
+        }
         avEngine.prepare()
     }
 
@@ -59,6 +80,8 @@ final class HearingEngine: ObservableObject {
         self.vision = vision
         isUsingOnDevicePayload = vision != nil
         isRunning = true
+        startRouteObserver()
+        configureAudioSessionThenRefresh()
         engineQueue.async { [weak self] in
             guard let self else { return }
             do {
@@ -74,6 +97,10 @@ final class HearingEngine: ObservableObject {
 
     func stop() {
         isRunning = false
+        if let o = routeObserver {
+            NotificationCenter.default.removeObserver(o)
+            routeObserver = nil
+        }
         DispatchQueue.main.async { [weak self] in
             self?.pollTimer?.invalidate()
             self?.pollTimer = nil
@@ -89,6 +116,96 @@ final class HearingEngine: ObservableObject {
     }
 
     deinit { stop() }
+
+    private func configureAudioSessionThenRefresh() {
+        DispatchQueue.main.async { [weak self] in
+            let s = AVAudioSession.sharedInstance()
+            do {
+                try s.setCategory(
+                    .playback,
+                    mode: .default,
+                    options: [.allowBluetoothA2DP, .allowBluetooth, .mixWithOthers, .defaultToSpeaker]
+                )
+                try s.setActive(true, options: [])
+            } catch {
+                print("Hearing: AVAudioSession config:", error)
+            }
+            self?.refreshHeadphoneStateAndRendering()
+        }
+    }
+
+    private func startRouteObserver() {
+        if routeObserver != nil { return }
+        routeObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.refreshHeadphoneStateAndRendering()
+        }
+        refreshHeadphoneStateAndRendering()
+    }
+
+    private func refreshHeadphoneStateAndRendering() {
+        let spatial = Self.isImmersiveStereoOutputRoute
+        DispatchQueue.main.async { [weak self] in
+            self?.isSpatialHeadphoneRouteActive = spatial
+        }
+        engineQueue.async { [weak self] in
+            guard let self else { return }
+            if #available(iOS 11.0, *) {
+                self.environment3D.renderingAlgorithm = spatial ? .HRTF : .equalPowerPanning
+            }
+            self.replayClonesForRouteChangeLocked()
+        }
+    }
+
+    /// Wired headphones, AirPods (BT A2DP), and most stereo BT devices — **not** the built-in speaker
+    /// (still works, but 3D is optimized for binaural devices).
+    private static var isImmersiveStereoOutputRoute: Bool {
+        for out in AVAudioSession.sharedInstance().currentRoute.outputs {
+            switch out.portType {
+            case .headphones, .bluetoothA2DP, .airPlay, .HDMI, .thunderbolt:
+                return true
+            case .bluetoothLE:
+                return true
+            case .builtInSpeaker, .builtInReceiver:
+                return false
+            case .bluetoothHFP:
+                // Narrow-band; still stereo-ish on some devices — treat as off-bubble
+                return false
+            default:
+                continue
+            }
+        }
+        return false
+    }
+
+    /// Must run on `engineQueue` so graph + TTS gating stay consistent.
+    private func replayClonesForRouteChangeLocked() {
+        guard lastFrame != nil else { return }
+        suppressTTSDuringCloneRebuild = true
+        for c in clones.values { c.stop() }
+        clones.removeAll()
+        freeEnvironmentBuses.removeAll()
+        nextEnvironmentInputBus = 0
+        if let f = lastFrame {
+            handleFrame(f)
+        }
+        suppressTTSDuringCloneRebuild = false
+    }
+
+    private func takeEnvironmentBus() -> AVAudioNodeBus? {
+        if !freeEnvironmentBuses.isEmpty {
+            return freeEnvironmentBuses.removeLast()
+        }
+        if nextEnvironmentInputBus >= maxEnvironmentBuses {
+            return nil
+        }
+        let b = nextEnvironmentInputBus
+        nextEnvironmentInputBus += 1
+        return b
+    }
 
     private func rewire() {
         pollTimer?.invalidate()
@@ -147,6 +264,7 @@ final class HearingEngine: ObservableObject {
         let ids = Set(frame.objects.map(\.objectId))
         for (id, clone) in clones where !ids.contains(id) {
             clone.stop()
+            freeEnvironmentBuses.append(clone.inputBus)
             clones.removeValue(forKey: id)
         }
         for obj in frame.objects {
@@ -160,19 +278,29 @@ final class HearingEngine: ObservableObject {
                 }
             } else {
                 let freq = Self.frequency(for: obj.objectClass)
-                let clone = AudioClone(engine: avEngine, id: obj.objectId, frequency: freq)
+                guard let bus = takeEnvironmentBus() else { continue }
+                let clone = AudioClone(
+                    engine: avEngine,
+                    environment: environment3D,
+                    inputBus: bus,
+                    id: obj.objectId,
+                    frequency: freq
+                )
                 clones[obj.objectId] = clone
                 clone.start()
                 clone.updatePosition(
                     pan: Float(obj.panValue),
                     distance: Float(obj.distanceM)
                 )
-                speakIfAllowed(obj: obj)
+                if obj.priority.uppercased() == "HIGH" {
+                    speakIfAllowed(obj: obj)
+                }
             }
         }
         let alert = frame.objects.contains { o in
             o.distanceM < 3.0 && abs(o.velocityMps) > 1.5
         }
+        lastFrame = frame
         DispatchQueue.main.async { [weak self] in
             self?.objectCount = frame.objects.count
             self?.alertActive = alert
@@ -189,6 +317,7 @@ final class HearingEngine: ObservableObject {
     }
 
     private func speakIfAllowed(obj: DetectedObjectDTO) {
+        if suppressTTSDuringCloneRebuild { return }
         let now = Date()
         if let last = lastSpoken[obj.objectId], now.timeIntervalSince(last) < speakCooldownSeconds { return }
         lastSpoken[obj.objectId] = now
@@ -204,17 +333,28 @@ final class HearingEngine: ObservableObject {
     }
 }
 
-// MARK: - Per-object tone
+// MARK: - Per-object tone (3D “bubble” + stereo fallback for speaker)
 
+/// One looping tone, mixed into a shared `AVAudioEnvironmentNode` so **head-tracked binaural**
+/// rendering (HRTF) can place it in an arc around the listener. **Pan** + **distance** from vision
+/// map to a point on a horizontal ring (virtual bubble).
 private final class AudioClone {
     let id: String
+    fileprivate let inputBus: AVAudioNodeBus
     let player = AVAudioPlayerNode()
     let varispeed = AVAudioUnitVarispeed()
     let buffer: AVAudioPCMBuffer
     weak var engine: AVAudioEngine?
 
-    init(engine: AVAudioEngine, id: String, frequency: Double) {
+    init(
+        engine: AVAudioEngine,
+        environment: AVAudioEnvironmentNode,
+        inputBus: AVAudioNodeBus,
+        id: String,
+        frequency: Double
+    ) {
         self.id = id
+        self.inputBus = inputBus
         self.engine = engine
         let sampleRate = 44100.0
         self.buffer = AudioClone.makeToneBuffer(
@@ -225,7 +365,11 @@ private final class AudioClone {
         engine.attach(player)
         engine.attach(varispeed)
         engine.connect(player, to: varispeed, format: buffer.format)
-        engine.connect(varispeed, to: engine.mainMixerNode, format: buffer.format)
+        engine.connect(varispeed, to: environment, fromBus: 0, toBus: inputBus, format: buffer.format)
+
+        if #available(iOS 15.0, *) {
+            player.sourceMode = .point
+        }
     }
 
     func start() {
@@ -243,11 +387,23 @@ private final class AudioClone {
         }
     }
 
+    /// `pan` is horizontal stereo cue; `distance` is meters. Placed on a 2m-scale ring in front/around the user.
     func updatePosition(pan: Float, distance: Float) {
         let vol = max(0.05, min(1.0, 1.0 - (Double(distance) / 20.0)))
         let speed = max(0.8, min(1.5, 1.0 + (5.0 - Double(distance)) * 0.05))
         player.volume = vol
         varispeed.rate = Float(speed)
+
+        let d = max(0.1, min(40.0, Double(distance)))
+        // Virtual ring radius: farther objects sit slightly farther in the 3D stage (capped for stability).
+        let ring = Float(min(2.0, 0.6 + 4.0 / d))
+        let az = Double(pan) * (Double.pi * 0.5)
+        let x = ring * sin(Float(az))
+        let z = -ring * cos(Float(az))
+        if let m = player as? AVAudio3DMixing {
+            m.position = AVAudio3DPoint(x: x, y: 0, z: z)
+        }
+        // Fallback: still set stereo pan for paths where 3D isn’t applied (e.g. some built-in routes).
         player.pan = pan
     }
 

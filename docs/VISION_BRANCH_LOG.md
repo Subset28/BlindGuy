@@ -12,6 +12,12 @@ This file is **append-only** (add new entries at the **top**). It records **visi
 
 ---
 
+## 2026-04-30
+
+- **Hearing (iOS `App/HearingEngine`):** **`AVAudioEnvironmentNode`** 3D “**audio bubble**” (HRTF on headphone / AirPods / BT stereo; **equal-power** on speaker) + **`AVAudioSession`** route observer + **`isSpatialHeadphoneRouteActive`**. Tones get **`AVAudio3DPoint`** on a virtual ring; TTS unchanged. **ContentView** chips “3D BUBBLE” / “SPEAKER 2D” + accessibility.
+
+---
+
 ## 2026-04-29
 
 - **Final wiring (iOS + Python + hearing):** **`BlindGuyRuntime/`** — **`AppViewModel`**, **`HearingEngine`** ( **`BlindGuyKit.FramePayload`**, on-device **`$lastPayload`** or **`GET /frame`** bridge), **`BlindGuyAppEntry`** (`@main`). **`ContentView`** + Settings bridge URL. **`GET /payload`** = **`/frame`** in **`app.py`**. **`ios/XCODE_SETUP.md`**, **`Info.plist.example`**, **`AudioEngine/README.md`** updated; legacy **`AudioEngineApp`** no longer `@main`.
