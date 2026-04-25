@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @AppStorage("shouldShowOnboarding") var shouldShowOnboarding: Bool = true
     @State private var isScanning = true
+    @State private var showingSettings = false
     @State private var threatLevel = "LOW"
     @State private var objectCount = 3
     
@@ -12,6 +13,9 @@ struct ContentView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
         } else {
             mainDashboard
+                .sheet(isPresented: $showingSettings) {
+                    SettingsView()
+                }
         }
     }
     
@@ -43,22 +47,34 @@ struct ContentView: View {
                     }
                     Spacer()
                     
-                    // Connection Badge
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(Color.green)
-                            .frame(width: 8, height: 8)
-                        Text("AIRPODS PRO")
-                            .font(.system(size: 10, weight: .heavy))
+                    // Connection Badge & Settings
+                    HStack(spacing: 12) {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(Color.green)
+                                .frame(width: 8, height: 8)
+                            Text("AIRPODS PRO")
+                                .font(.system(size: 10, weight: .heavy))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(20)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .stroke(Color.green.opacity(0.3), lineWidth: 1)
+                        )
+                        
+                        Button(action: { showingSettings = true }) {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.white)
+                                .padding(8)
+                                .background(Color.white.opacity(0.1))
+                                .clipShape(Circle())
+                        }
+                        .accessibilityLabel("Settings")
                     }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.green.opacity(0.1))
-                    .cornerRadius(20)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.green.opacity(0.3), lineWidth: 1)
-                    )
                 }
                 .padding(.horizontal, 30)
                 .padding(.top, 20)

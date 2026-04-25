@@ -1,0 +1,47 @@
+import UIKit
+
+/**
+ * BlindGuy Haptic Manager
+ * 
+ * DESIGN PRINCIPLE:
+ * For visually impaired users, haptics are the 'Physical UI'.
+ * We use high-fidelity haptic patterns to represent the density 
+ * and proximity of the Auditory Twin environment.
+ */
+class HapticManager {
+    static let shared = HapticManager()
+    
+    private let impactLight = UIImpactFeedbackGenerator(style: .light)
+    private let impactMedium = UIImpactFeedbackGenerator(style: .medium)
+    private let impactHeavy = UIImpactFeedbackGenerator(style: .heavy)
+    private let notification = UINotificationFeedbackGenerator()
+    
+    private init() {
+        impactLight.prepare()
+        impactMedium.prepare()
+        impactHeavy.prepare()
+        notification.prepare()
+    }
+    
+    /// Triggered when a new 'Audio Clone' enters the radar
+    func triggerDiscovery() {
+        impactLight.impactOccurred()
+    }
+    
+    /// Triggered when an object enters the 'Warning' zone (< 5m)
+    func triggerWarning() {
+        impactMedium.impactOccurred()
+    }
+    
+    /// Triggered for critical proximity or collision threats (< 2m)
+    func triggerCriticalThreat() {
+        notification.notificationOccurred(.error)
+        impactHeavy.impactOccurred()
+    }
+    
+    /// Haptic 'Heartbeat' that increases in frequency as threats approach
+    func triggerHeartbeat(intensity: CGFloat) {
+        // Implementation would use Core Haptics for custom CHHapticPattern
+        impactLight.impactOccurred(intensity: intensity)
+    }
+}
