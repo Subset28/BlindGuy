@@ -391,10 +391,8 @@ private final class AudioClone {
         engine.attach(varispeed)
         engine.connect(player, to: varispeed, format: buffer.format)
         engine.connect(varispeed, to: environment, fromBus: 0, toBus: inputBus, format: buffer.format)
-
-        if #available(iOS 15.0, *) {
-            player.sourceMode = .point
-        }
+        // 3D placement uses `position` on `AVAudio3DMixing` below. `sourceMode` enum cases
+        // differ across iOS SDKs, so we avoid hard-coding a case name here.
     }
 
     func start() {
@@ -414,7 +412,7 @@ private final class AudioClone {
 
     /// `pan` is horizontal stereo cue; `distance` is meters. Placed on a 2m-scale ring in front/around the user when `use3D`.
     func updatePosition(pan: Float, distance: Float, use3D: Bool) {
-        let vol = max(0.05, min(1.0, 1.0 - (Double(distance) / 20.0)))
+        let vol = Float(max(0.05, min(1.0, 1.0 - (Double(distance) / 20.0))))
         let speed = max(0.8, min(1.5, 1.0 + (5.0 - Double(distance)) * 0.05))
         player.volume = vol
         varispeed.rate = Float(speed)

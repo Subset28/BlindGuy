@@ -129,16 +129,13 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
             DispatchQueue.main.async { completion(payload) }
         }
 
-        #if os(iOS)
-        let opts: [VNImageOption: Any] = [VNImageOption.preferBackgroundProcessing: true]
-        #else
-        let opts: [VNImageOption: Any] = [:]
-        #endif
+        // `VNCoreMLRequest.preferBackgroundProcessing` is set in `CoreMLDetector.makeRequest`.
+        // (Do not use `VNImageOption` for this — the symbol is not available on all iOS SDKs.)
         do {
             let handler = VNImageRequestHandler(
                 cvPixelBuffer: pixelBuffer,
                 orientation: orientation,
-                options: opts
+                options: [:]
             )
             try handler.perform([request])
         } catch {

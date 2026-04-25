@@ -1,34 +1,28 @@
 # Building the BlindGuy iOS app (Xcode)
 
-There is **no committed `.xcodeproj`** (team machine and signing vary). Use **one** iOS app target and link the local **`BlindGuyKit`** package.
+## 1. Open the committed project (recommended)
 
-## 1. New project
+At the repo root:
 
-1. Xcode → **File → New → App** → Product Name: **BlindGuy**, Interface: **SwiftUI**, Language: **Swift**, minimum **iOS 16.0**.
-2. Save the project **next to** this repo or inside it (e.g. `BlindGuy/BlindGuy.xcodeproj` at repo root or under `ios/`).
+- **BlindGuy/BlindGuy.xcodeproj** — iOS app target with **File System Synchronized** sources pointing at **`../App`** and a local **Swift Package** dependency on **`../ios/BlindGuyKit`**.
 
-## 2. Add the `BlindGuyKit` package
+In Xcode, open that project, pick an **iOS Simulator** (e.g. iPhone) as the run destination, then **Build** (⌘B). No manual “add all Swift files” step is required: everything under `App/` is in the app target.
+
+If you do **not** use this project, create your own and link **`BlindGuyKit`** (see below).
+
+## 2. `BlindGuyKit` (already wired in the committed project)
+
+The committed target already resolves **`ios/BlindGuyKit`**. If you add a new app target or project from scratch:
 
 1. **File → Add Package Dependencies… → Add Local…**
 2. Select `ios/BlindGuyKit` (the folder containing `Package.swift`).
-3. Add **BlindGuyKit** to the **BlindGuy** app target.
+3. Add **BlindGuyKit** to the app target.
 
-## 3. Add app source files
+## 3. App sources
 
-Add these to the **BlindGuy** app target (**Target → Build Phases → Compile Sources**), *not* to the package:
+With **`../App`** synchronized into the app target, all Swift files there are compiled, including e.g. **`BlindGuyAppEntry.swift`**, **`HearingEngine.swift`**, **`SettingsView.swift`**, **`BlindGuyFeatureFlags.swift`**, etc. Do **not** add `App` sources to the **`BlindGuyKit`** product.
 
-| Path (from repo root) | Role |
-|----------------------|------|
-| `App/BlindGuyAppEntry.swift` | `@main` entry |
-| `App/AppViewModel.swift` | Wires vision + camera + hearing |
-| `App/HearingEngine.swift` | Spatial audio engine |
-| `App/ContentView.swift` | Main UI Dashboard |
-| `App/OnboardingView.swift` | Onboarding Flow |
-| `App/RadarView.swift` | Spatial Radar Component |
-| `App/SettingsView.swift` | App Settings |
-| `App/HapticManager.swift` | Haptic Feedback Engine |
-
-**Delete** the Xcode template `ContentView.swift` if it conflicts with `ios/ContentView.swift`.
+**If you use a new Xcode app template:** remove its template `ContentView` / `App` struct if you replace them with the repo’s `App/` files.
 
 ## 4. CoreML model
 
@@ -44,7 +38,7 @@ Merge at least:
 - **Privacy – Camera** (`NSCameraUsageDescription`): e.g. *“BlindGuy uses the camera to detect objects for spatial audio.”*
 - **App Transport Security**: **Allow arbitrary loads in local networks** (or use **`NSAppTransportSecurity` → `NSAllowsLocalNetworking` = true**) so `http://<mac-ip>:8765` works on device.
 
-A reference plist fragment is in **`ios/BlindGuyRuntime/Info.plist.example`** (copy keys into the target’s Info or use a build setting).
+A reference plist fragment is in **`App/Info.plist.example`** (copy keys into the target’s Info or use a build setting).
 
 ## 6. One `@main` only
 

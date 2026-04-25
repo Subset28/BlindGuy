@@ -129,10 +129,10 @@ struct SettingsView: View {
             }
         }
         .preferredColorScheme(.dark)
-        .onChange(of: spatial3DBubble) { _, _ in
+        .onChange(of: spatial3DBubble) { _ in
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
-        .onChange(of: hearingTones) { _, _ in
+        .onChange(of: hearingTones) { _ in
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
     }
