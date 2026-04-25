@@ -42,9 +42,8 @@ struct RadarView: View {
         }
         .frame(width: 300, height: 300)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Spatial Radar")
-        .accessibilityValue("Currently scanning. 3 active audio clones detected in your vicinity.")
-        .accessibilityHint("Visualizes real-time objects around you as auditory representations.")
+        .accessibilityLabel("Spatial radar")
+        .accessibilityValue("Decorative visualization of direction and range around you.")
     }
 }
 

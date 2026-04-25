@@ -83,10 +83,10 @@ extension AppViewModel {
 
     var latencyLine: String {
         if let ms = session?.lastPayload?.visionDurationMs, modelAvailable {
-            return "\(ms)ms"
+            return "\(ms) ms"
         }
         if let b = hearing.lastBridgeLatencyMs, !hearing.isUsingOnDevicePayload {
-            return "bridge ~\(b)ms"
+            return "∼\(b) ms"
         }
         return "—"
     }

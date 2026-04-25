@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage(BlindGuyFeatureKey.payloadHUD) private var payloadHUD: Bool = true
     @AppStorage(BlindGuyFeatureKey.lensTTS) private var lensTTS: Bool = true
     @AppStorage("blindguy.visionBridgeBaseURLString") private var bridgeURLString: String = "http://127.0.0.1:8765"
+    @State private var showOptionalComputer: Bool = false
 
     var body: some View {
         NavigationView {
@@ -59,26 +60,39 @@ struct SettingsView: View {
                     }
 
                     Section {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Python bridge (Mac / PC)")
-                                .font(.headline)
-                            Text("When no CoreML model in the app, or for lab demos, the hearing engine polls this base URL for GET /frame (same as GET /payload on the server).")
+                        DisclosureGroup(isExpanded: $showOptionalComputer) {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(
+                                    "BlindGuy runs on this iPhone. A Mac or PC on the same Wi‑Fi is only for developer or lab setups — not everyday use. If your team gave you a web address to use, enter it here. Otherwise, leave this collapsed."
+                                )
                                 .font(.caption)
                                 .foregroundColor(.secondary)
-                            TextField("http://192.168.1.10:8765", text: $bridgeURLString)
-                                .textContentType(.URL)
-                                .autocorrectionDisabled()
-                                .onSubmit { applyBridgeURL() }
+                                TextField("http://10.0.0.1:8765", text: $bridgeURLString)
+                                    .textContentType(.URL)
+                                    .autocorrectionDisabled()
+                                    .onSubmit { applyBridgeURL() }
+                                Button("Save address") {
+                                    applyBridgeURL()
+                                }
+                                .tint(.green)
+                            }
+                            .padding(.top, 4)
+                        } label: {
+                            Label {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Optional: lab computer on Wi‑Fi")
+                                    Text("Hidden unless you need it")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "laptopcomputer.and.iphone")
+                            }
                         }
-                        .padding(.vertical, 4)
-                        Button("Apply bridge URL") {
-                            applyBridgeURL()
-                        }
-                        .tint(.green)
                     } header: {
-                        Text("Development")
+                        Text("For developers")
                     } footer: {
-                        Text("Run: PYTHONPATH=src python -m visual_engine.main --host 0.0.0.0 --port 8765 (optionally --no-local-camera for phone-only).")
+                        Text("Normal use: vision and audio on this device. No second machine required.")
                     }
 
                     Section {
