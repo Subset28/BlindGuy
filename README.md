@@ -2,7 +2,9 @@
 
 A project for visual and audio assistance.
 
-## Visual Branch Quick Start
+**Branching:** trunk-based development on **`main`** only (no long-lived feature branches on the remote). See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+## Visual engine quick start
 
 This repository now includes a complete Python-based Visual Engine implementation
 that matches the PRD contract for real-time object detection payloads.
@@ -67,7 +69,7 @@ PYTHONPATH=src python -m visual_engine.calibration \
 
 See `docs/visual-integration.md` for the JSON contract and bridge notes.
 
-**Visual branch changelog (append-only):** `docs/VISION_BRANCH_LOG.md` — **append a bullet on every** **Visual**-scoped change (same commit as the code when possible; see the log’s header for day blocks). Do not defer logging to “release day” only.
+**Vision pipeline changelog (append-only):** `docs/VISION_BRANCH_LOG.md` — **append a bullet on every** vision- or contract-scoped change (same commit as the code when possible; see the log’s header). Do not defer logging to “release day” only.
 
 ### 6) iPhone / SwiftUI (on-device vision)
 

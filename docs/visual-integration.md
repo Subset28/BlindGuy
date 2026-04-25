@@ -1,6 +1,6 @@
 # BlindGuy Visual Engine Integration Guide
 
-This module is fully standalone. Use it to align **iOS (UI/UX + Audio)**, **Python (this repo, Visual branch)**, and the shared JSON contract from `PRD.md`.
+This module is fully standalone. Use it to align **iOS (UI/UX + Audio)**, **Python (this repo, `main`)**, and the shared JSON contract from `PRD.md`.
 
 ## Layout for the team
 

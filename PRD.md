@@ -2,9 +2,9 @@
 **Academies Hacks 2026 | Theme: CLONING**
 **Prepared by:** Senior Technical Product Manager
 **Deadline:** 24 Hours | **Team Size:** 3 Developers
-**Version:** 1.2.1 — COMPETITION DRAFT (as-built: Visual + iOS kit + tests + lens health; `VISION_BRANCH_LOG` continual-updates policy)
+**Version:** 1.2.2 — COMPETITION DRAFT (as-built: `main` trunk, vision + iOS kit + tests + lens health; `VISION_BRANCH_LOG` continual-updates policy)
 
-> **PRD maintenance (engineering):** When behavior or the JSON contract changes, update **§4**, **§4.1**, and **§4.2** in this file, bump the **Version** line (minor for contract/tooling, patch for typos), and keep **`docs/contract.example.json`**, **`README.md`**, and **`docs/visual-integration.md`** in sync. **Continually** append to **`docs/VISION_BRANCH_LOG.md`**—a short bullet in the same commit for **each** **Visual**-scoped change (not only at the end of a sprint). This file is the single narrative source for judges + teammates; the repo is the source of truth for exact flags and filenames.
+> **PRD maintenance (engineering):** When behavior or the JSON contract changes, update **§4**, **§4.1**, and **§4.2** in this file, bump the **Version** line (minor for contract/tooling, patch for typos), and keep **`docs/contract.example.json`**, **`README.md`**, and **`docs/visual-integration.md`** in sync. **Continually** append to **`docs/VISION_BRANCH_LOG.md`**—a short bullet in the same commit for **each** vision- or contract-scoped change (not only at the end of a sprint). This file is the single narrative source for judges + teammates; the repo is the source of truth for exact flags and filenames.
 
 **Ship target (this team):** **iPhone (iOS)** on the user’s body (lanyard or chest mount), with **AirPods Pro** for spatial output. The phone is the camera and the runtime for **Swift** (UI/UX + Audio). Vision ML is **YOLOv8n**; production inference is **on-device** (see Edge Processing). A **local Python bridge** in this repo is for integration and dev only (see below).
 
@@ -300,7 +300,7 @@ This is what the judges see. Shake the phone twice to activate:
 
 ---
 
-## 4.1 Visual branch — implementation specifics (this repository, iPhone-focused)
+## 4.1 Vision implementation (this repository, on `main`, iPhone-focused)
 
 This section records what the **`Visual` branch code** does today so **UI/UX**, **Audio**, and **judge tooling** share one truth. **Runtime target for the product is still the iPhone on iOS**; the Python service is the **reference implementation** and **integration bridge** until CoreML runs the same model on-device.
 
@@ -317,7 +317,7 @@ This section records what the **`Visual` branch code** does today so **UI/UX**, 
 | **Input resolution (webcam default)** | **640×480** OpenCV pull (device-dependent). iPhone JPEGs use native capture size; same math on pixel bbox height. |
 | **Server** | **Flask**; default bind **`127.0.0.1:8765`**; use **`0.0.0.0`** for LAN. |
 | **HTTP API** | `GET /health`, `GET /frame`, `POST /infer` (JPEG), CORS for dashboards. |
-| **Docs in repo** | `docs/visual-integration.md` (team handoff), `docs/contract.example.json` (example payload), **`docs/VISION_BRANCH_LOG.md`** (append-only **Visual branch** engineering log). |
+| **Docs in repo** | `docs/visual-integration.md` (team handoff), `docs/contract.example.json` (example payload), **`docs/VISION_BRANCH_LOG.md`** (append-only **vision pipeline** log; all work on **`main`**). |
 | **Dependencies** | `flask`, `ultralytics`, `opencv-python`, `numpy` (see `requirements.txt`). |
 | **iOS on-device (Swift / SwiftUI)** | Swift package **`ios/BlindGuyKit`**: **CoreML** + **Vision** (`VNCoreMLRequest`), **YOLOv8n** exported with **NMS** (`scripts/export_coreml.py`), **`FramePayload`** / **`DetectedObjectDTO`** `Codable` types matching Section 4, **`OnDeviceVisionEngine`** (serial queue, **~15 Hz** emit cap, **drop** if inference still running, `VNImageOption.preferBackgroundProcessing`), **`BlindGuySession`** (`ObservableObject`, `@Published lastPayload`) for SwiftUI. **Lens / smudge:** `LensQualityAnalyzer` + **`LensWarningAnnouncer`** (iOS, `AVSpeechSynthesizer`, cooldown). Integrate: add local package in Xcode, bundle **`yolov8n.mlpackage`** in the **app** target, `AVCaptureVideoDataOutput` → `CVPixelBuffer` → `session.ingest(...)`. See **`ios/README.md`**. |
 | **Tests** | **Pytest** (`tests/`, `pytest.ini`); **`python -m visual_engine.testing_engine`** in-process smokes; `validate_frame_payload` for schema. |

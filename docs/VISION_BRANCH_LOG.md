@@ -1,12 +1,12 @@
-# Visual branch — engineering log
+# Vision pipeline — engineering log
 
-This file is **append-only** (add new entries at the **top**). It records work on the **`Visual` branch**: on-device / reference **vision pipeline**, **JSON contract**, **Python bridge**, **tests**, and **PRD/docs** that describe vision only. **Audio** and **UI/UX** app code may keep their own logs; anything that **changes the vision contract or `BlindGuyKit` API** still belongs here.
+This file is **append-only** (add new entries at the **top**). It records **vision** work in this repository: on-device / reference **vision pipeline**, **JSON contract**, **Python bridge**, **tests**, and **PRD/docs** that describe vision. (The filename **`VISION_BRANCH_LOG`** is historical; all work targets **`main`**.) **Audio** and **UI/UX** may keep their own logs; anything that **changes the vision contract or `BlindGuyKit` API** still belongs here.
 
 **How to use (continual, not end-of-sprint only):** After **each** **Visual**-scoped change, append **before** you push or open the PR: a short bullet under **today’s** `## YYYY-MM-DD` (start a new day section at the top when the calendar day changes). **Same commit** as the code is ideal. One bullet can cover a focused diff; for large work, a few bullets is fine. **Humans and coding agents** both follow this so judges and partners always see a fresh trail.
 
 | Cadence | Action |
 |--------|--------|
-| **Every** vision PR / direct push to `Visual` | At least one new log bullet |
+| **Every** vision PR / push to **`main`** | At least one new log bullet |
 | New calendar day | New `## YYYY-MM-DD` block **above** older days |
 | Contract or `FramePayload` change | Log entry + **PRD** / `contract.example.json` (see **PRD** maintenance) |
 
@@ -15,6 +15,7 @@ This file is **append-only** (add new entries at the **top**). It records work o
 ## 2026-04-28
 
 - **Main integration:** Merged **`origin/Visual`**, **`origin/UI/UX`**, **`origin/Audio`** into **`main`**. **`PRD.md`** “Winning Code Stack” conflict resolved: **iOS + CoreML** production path, **Flask** in-repo reference + **`/judge`**, optional external FastAPI/GCP/Firebase later. (UI/UX files under `ios/` and `ui/`; Hearing under **`AudioEngine/`** — coordinate paths with `ios/BlindGuyKit` as needed.)
+- **Single default branch:** Removed long-lived remotes **`Visual`**, **`UI/UX`**, **`Audio`**; **`main`** is the only remote branch. Added **`CONTRIBUTING.md`** (trunk-based workflow). Renamed this log’s title to **Vision pipeline** (filename unchanged for links).
 
 ---
 
