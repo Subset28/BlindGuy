@@ -12,6 +12,12 @@ This file is **append-only** (add new entries at the **top**). It records work o
 
 ---
 
+## 2026-04-28
+
+- **Main integration:** Merged **`origin/Visual`**, **`origin/UI/UX`**, **`origin/Audio`** into **`main`**. **`PRD.md`** “Winning Code Stack” conflict resolved: **iOS + CoreML** production path, **Flask** in-repo reference + **`/judge`**, optional external FastAPI/GCP/Firebase later. (UI/UX files under `ios/` and `ui/`; Hearing under **`AudioEngine/`** — coordinate paths with `ios/BlindGuyKit` as needed.)
+
+---
+
 ## 2026-04-27
 
 - **Process — continual logging:** Strengthened instructions in this file, **PRD** maintenance, and **README** so the log is **appended to on every** **Visual**-scoped change, not only at release. Replaces ad-hoc “ship day” only updates.
