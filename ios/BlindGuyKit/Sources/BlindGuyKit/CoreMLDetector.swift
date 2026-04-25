@@ -23,7 +23,7 @@ public final class CoreMLDetector: @unchecked Sendable {
         }
     }
 
-    /// Bundle resource name without extension, e.g. `yolov8n` for `yolov8n.mlpackage` compiled to `yolov8n.mlmodelc`
+    /// Bundle resource name without extension, e.g. `yolov8n` for `yolov8n.mlpackage`.
     public convenience init(modelResourceName: String, bundle: Bundle, config: VisionConfiguration = .default) throws {
         var url = bundle.url(forResource: modelResourceName, withExtension: "mlmodelc")
         if url == nil {
@@ -65,14 +65,23 @@ public final class CoreMLDetector: @unchecked Sendable {
             guard let top = obs.labels.first else { continue }
             let conf = top.confidence
             guard conf >= config.confidenceThreshold else { continue }
-            let rawName = COCOMapping.normalizedName(from: top.identifier) ?? top.identifier
-            guard let name = mapToCanonicalClass(rawName: rawName) else { continue }
-            guard config.targetClassNames.contains(name) else { continue }
+
+            let rawName = labelString(from: top.identifier)
+            let t = rawName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard config.targetClassNames.contains(t) else { continue }
 
             let (xc, yc, w, h) = VisionGeometry.prdBoxFromVisionBoundingBox(obs.boundingBox)
+            let visFrac = VisionGeometry.prdBboxVisibleAreaFraction(
+                xCenter: xc,
+                yCenter: yc,
+                w: w,
+                h: h
+            )
+            guard visFrac >= config.minBboxAreaFractionInFrame else { continue }
+
             let hPx = max(1, h * Double(imageHeight))
             let dist = VisionGeometry.monocularDistanceM(
-                className: name,
+                className: t,
                 knownHeightsM: config.knownHeightsM,
                 focalLengthPx: config.focalLengthPixels,
                 bboxHeightPx: hPx
@@ -80,7 +89,7 @@ public final class CoreMLDetector: @unchecked Sendable {
             let pan = VisionGeometry.panValue(xCenterNorm: xc)
             out.append(
                 RawDetection(
-                    className: name,
+                    className: t,
                     confidence: Double(conf),
                     xCenterNorm: xc,
                     yCenterNorm: yc,
@@ -94,11 +103,11 @@ public final class CoreMLDetector: @unchecked Sendable {
         return out
     }
 
-    private func mapToCanonicalClass(rawName: String) -> String? {
-        let t = rawName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        if config.targetClassNames.contains(t) { return t }
-        return nil
+    private func labelString(from identifier: String) -> String {
+        let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let i = Int(trimmed), i >= 0, i < COCOMapping.classNames.count {
+            return COCOMapping.classNames[i].lowercased()
+        }
+        return trimmed.lowercased()
     }
 }

@@ -2,7 +2,7 @@
 
 **Full app (Xcode):** see **`XCODE_SETUP.md`** — one app target, **`BlindGuyKit`** package, and **`BlindGuyRuntime/`** (`AppViewModel`, **`HearingEngine`**, single **`@main`**) wiring vision + camera + spatial audio. **`Info.plist.example`** covers camera and local HTTP.
 
-The **`BlindGuyKit`** Swift package runs **YOLOv8n on-device** via **CoreML + Vision** and produces the **same JSON-shaped `FramePayload`** as the Python server (`docs/contract.example.json`).
+The **`BlindGuyKit`** Swift package runs **YOLOv8n (COCO) on-device** via **CoreML + Vision** and produces the **same JSON-shaped `FramePayload`** as the Python server (`docs/contract.example.json`).
 
 ## Team handoff (Visual is wired; you plug the app + audio)
 
@@ -27,7 +27,7 @@ pip install ultralytics
 python3 scripts/export_coreml.py
 ```
 
-Drag the generated **`yolov8n.mlpackage`** into the Xcode app target (not the package, unless you add a **Copy Bundle Resources** entry to the library—**simpler to keep the model in the app**). In code, load with:
+Drag the generated **`yolov8n.mlpackage`** into the Xcode app target (not the package, unless you add a **Copy Bundle Resources** entry to the library—**simpler to keep the model in the app**). Example:
 
 ```swift
 let detector = try CoreMLDetector(modelResourceName: "yolov8n", bundle: .main)

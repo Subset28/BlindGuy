@@ -6,33 +6,21 @@ struct OnboardingView: View {
 
     private let pages: [OnboardingPage] = [
         OnboardingPage(
-            title: "Hear your surroundings",
-            description: "Direction and distance become sound — built for moving through real space.",
-            icon: "ear.badge.waveform",
-            color: BlindGuyTheme.accent
-        ),
-        OnboardingPage(
-            title: "What’s around you",
-            description: "Objects in view are turned into spatial cues you can interpret without looking at the screen.",
-            icon: "viewfinder",
+            title: "What BlindGuy detects",
+            description: "People, vehicles, bikes, dogs, traffic lights, signs, benches, and selected everyday obstacles from the camera view.",
+            icon: "viewfinder.circle",
             color: BlindGuyTheme.info
         ),
         OnboardingPage(
-            title: "Best with headphones",
-            description: "Stereo or spatial earphones give the clearest sense of left, right, and distance.",
-            icon: "headphones",
-            color: BlindGuyTheme.info
+            title: "Distance is estimated",
+            description: "Distance is approximate and may vary by lighting, motion, and camera angle. BlindGuy is assistive and does not replace a cane or guide dog.",
+            icon: "ruler",
+            color: BlindGuyTheme.warmAlert
         ),
         OnboardingPage(
-            title: "On this iPhone",
-            description: "Core processing runs on your device. You stay in control of when the camera is on.",
-            icon: "lock.shield",
-            color: BlindGuyTheme.accent
-        ),
-        OnboardingPage(
-            title: "You’re set",
-            description: "Keep the phone steady or on a lanyard. The main screen has one big control to start the camera when you need it.",
-            icon: "checkmark.circle",
+            title: "How to read speech output",
+            description: "High priority objects are spoken first. Distance phrases depend on confidence. Silence usually means no obstacles are currently detected.",
+            icon: "text.bubble",
             color: BlindGuyTheme.accent
         ),
     ]

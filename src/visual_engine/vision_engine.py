@@ -6,6 +6,7 @@ from time import perf_counter
 import numpy as np
 from ultralytics import YOLO
 
+from .bbox_in_frame import bbox_area_fraction_inside_image
 from .config import VisualConfig
 from .contracts import BBoxNorm, DetectedObject
 from .tracker import ObjectTracker
@@ -37,6 +38,8 @@ class VisionEngine:
             classes=None,
         )
 
+        min_frac = self._config.min_bbox_area_fraction_in_frame
+
         detections: list[dict] = []
         for result in results:
             for box in result.boxes:
@@ -46,15 +49,24 @@ class VisionEngine:
                 if class_name not in self._config.target_classes:
                     continue
                 x1, y1, x2, y2 = [float(v) for v in box.xyxy[0].tolist()]
+                if (
+                    bbox_area_fraction_inside_image(
+                        x1, y1, x2, y2, frame_w, frame_h
+                    )
+                    < min_frac
+                ):
+                    continue
                 bbox_w = max(x2 - x1, 1.0)
                 bbox_h = max(y2 - y1, 1.0)
                 x_center = (x1 + x2) / 2.0
                 y_center = (y1 + y2) / 2.0
 
                 pan_value = (x_center / frame_w - 0.5) * 2.0
-                known_height = self._config.known_heights_m.get(class_name, 1.7)
-                distance_m = (known_height * self._config.focal_length_px) / bbox_h
-                distance_m = round(max(0.1, distance_m), 2)
+                known_height = float(self._config.known_heights_m.get(class_name, 1.7))
+                known_height = min(max(known_height, 0.05), 6.0)
+                safe_focal = min(max(float(self._config.focal_length_px), 100.0), 10000.0)
+                raw_distance = (known_height * safe_focal) / bbox_h
+                distance_m = round(min(max(raw_distance, 0.1), 60.0), 2)
 
                 detections.append(
                     {
@@ -87,4 +99,3 @@ class VisionEngine:
         ]
         duration_ms = int((perf_counter() - start) * 1000)
         return VisionResult(objects=objects, duration_ms=duration_ms)
-

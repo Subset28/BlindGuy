@@ -16,6 +16,11 @@ final class AppViewModel: ObservableObject {
     @Published var isScanning: Bool = false
     @Published var modelAvailable: Bool = false
 
+    /// Pretrained YOLOv8n (COCO-80) CoreML bundle.
+    private static func loadBundledDetector() -> CoreMLDetector? {
+        try? CoreMLDetector(modelResourceName: "yolov8n", bundle: .main)
+    }
+
     let hearing: HearingEngine
     private(set) var session: BlindGuySession?
     private var camera: CameraPipeline?
@@ -27,7 +32,7 @@ final class AppViewModel: ObservableObject {
         hearingSink = hearing.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
-        if let detector = try? CoreMLDetector(modelResourceName: "yolov8n", bundle: .main) {
+        if let detector = AppViewModel.loadBundledDetector() {
             let eng = OnDeviceVisionEngine(detector: detector)
             let s = BlindGuySession(engine: eng)
             session = s
@@ -43,6 +48,10 @@ final class AppViewModel: ObservableObject {
             session = nil
             applyVisionSpeechPolicy()
             hearing.start(vision: nil)
+            hearing.announceSystemMessageOnce(
+                key: "model-missing",
+                message: "Vision model unavailable. Please reinstall the app."
+            )
         }
     }
 
@@ -63,6 +72,14 @@ final class AppViewModel: ObservableObject {
         HapticManager.shared.triggerDiscovery()
         #if os(iOS)
         guard let s = session else { return }
+        let status = AVCaptureDevice.authorizationStatus(for: .video)
+        if status == .denied || status == .restricted {
+            hearing.announceSystemMessageOnce(
+                key: "camera-denied",
+                message: "Camera access required. Please enable in Settings."
+            )
+            return
+        }
         if camera == nil { camera = CameraPipeline(vision: s) }
         Task {
             try? await camera?.start()

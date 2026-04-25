@@ -1,13 +1,46 @@
 from dataclasses import dataclass, field
 
+# COCO-80 class names; filter to this allowlist (Ultralytics `yolov8n.pt` pretrained).
+_DEFAULT_TARGET: frozenset[str] = frozenset(
+    {
+        "person",
+        "car",
+        "bicycle",
+        "motorcycle",
+        "truck",
+        "bus",
+        "dog",
+        "cat",
+        "chair",
+        "couch",
+        "dining table",
+        "potted plant",
+        "backpack",
+        "handbag",
+        "suitcase",
+        "cell phone",
+        "laptop",
+        "bottle",
+        "cup",
+        "umbrella",
+        "traffic light",
+        "fire hydrant",
+        "stop sign",
+        "bench",
+    }
+)
+
 
 @dataclass(slots=True)
 class VisualConfig:
     model_path: str = "yolov8n.pt"
-    confidence_threshold: float = 0.58
-    target_classes: set[str] = field(
-        default_factory=lambda: {"person", "car", "bicycle", "motorcycle", "truck", "bus", "dog", "cat", "chair", "couch", "dining table", "potted plant", "backpack", "handbag", "suitcase", "cell phone", "laptop", "bottle", "cup", "umbrella", "traffic light", "fire hydrant", "stop sign", "bench"}
+    target_classes: set[str] = field(default_factory=lambda: set(_DEFAULT_TARGET))
+    suppressed_classes: set[str] = field(
+        default_factory=lambda: {"clock", "vase", "wine glass", "teddy bear", "toothbrush"}
     )
+    confidence_threshold: float = 0.58
+    # Minimum fraction of the bbox that must lie inside the frame (0–1). Drops edge/OOB false positives.
+    min_bbox_area_fraction_in_frame: float = 0.7
     known_heights_m: dict[str, float] = field(
         default_factory=lambda: {
             "person": 1.7,
@@ -49,4 +82,3 @@ class VisualConfig:
     lens_laplacian_threshold: float = 100.0
     lens_warn_consecutive: int = 4
     lens_announcement_text: str = ""
-

@@ -15,5 +15,10 @@ let package = Package(
             name: "BlindGuyKit",
             path: "Sources/BlindGuyKit"
         ),
+        .testTarget(
+            name: "BlindGuyKitTests",
+            dependencies: ["BlindGuyKit"],
+            path: "Tests/BlindGuyKitTests"
+        ),
     ]
 )

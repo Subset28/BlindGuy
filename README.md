@@ -46,7 +46,7 @@ Point the iOS app at `http://<your-mac-lan-ip>:8765` (`POST /infer` with a JPEG,
 ### 3.1) iOS app (final wiring)
 
 - **Xcode** setup: `ios/XCODE_SETUP.md` — one `@main` (`BlindGuyAppEntry`), **BlindGuyKit**, **HearingEngine** (audio clones + optional bridge polling), **AppViewModel** + **CameraPipeline** + **ContentView** UI.
-- **Hearing** with no CoreML bundle: set **Settings → Development → Python bridge** to your Mac’s `http://<ip>:8765` and run the vision service; audio follows **`/frame`**. With **yolov8n.mlpackage** in the app, vision + camera feed hearing on-device.
+- **Hearing** with no CoreML bundle: set **Settings → Development → Python bridge** to your Mac’s `http://<ip>:8765` and run the vision service; speech follows **`/frame`**. With **`yolov8n.mlpackage`** in the app (from `python3 scripts/export_coreml.py`), vision + speech run on-device.
 
 ### 4) Optional calibration
 
@@ -79,7 +79,14 @@ See `docs/visual-integration.md` for the JSON contract and bridge notes.
 
 ### 6) iPhone / SwiftUI (on-device vision)
 
-The **`ios/BlindGuyKit`** Swift package runs **YOLOv8n** with **CoreML + Vision** on the phone, outputs the same **`FramePayload`** shape as `docs/contract.example.json`, and includes **`BlindGuySession`** for SwiftUI. Export the model with `python3 scripts/export_coreml.py`, then follow **`ios/README.md`** (camera preset, frame rate, orientation, performance knobs, **lens / smudge** detection + TTS on iOS).
+The **`ios/BlindGuyKit`** Swift package runs **YOLOv8n** (COCO) with **CoreML + Vision** on the phone, outputs the same **`FramePayload`** shape as `docs/contract.example.json`, and includes **`BlindGuySession`** for SwiftUI. Export the model with `python3 scripts/export_coreml.py`, then follow **`ios/README.md`** (camera preset, frame rate, orientation, performance knobs, **lens / smudge** detection + TTS on iOS).
+
+### Known limitations
+
+- Distances are **estimated**, not exact measurements.
+- Frame-edge/occlusion filtering may suppress partially visible objects.
+- TTS output is prioritized and rate-limited; in low-noise mode some low-priority objects may be intentionally silent.
+- BlindGuy is assistive and does **not** replace a cane, guide dog, or orientation and mobility training.
 
 ### 7) Tests and validation
 

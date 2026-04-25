@@ -165,7 +165,7 @@ class SimulationEngine:
         height: int = 480,
     ) -> SimulationReport:
         """
-        Full YOLO on random BGR (often 0 objects). Pulls in `yolov8n.pt` on first use.
+        Full YOLOv8n (COCO) on random BGR (often 0 objects). Pulls in `yolov8n.pt` on first use.
         Requires: `ultralytics` and model weights.
         """
         from .vision_engine import VisionEngine
@@ -222,7 +222,7 @@ def _parse() -> argparse.Namespace:
         "--scenario",
         choices=["lens_streak", "lens_sharp", "vision_random"],
         default="lens_streak",
-        help="lens_streak: smudge warning; lens_sharp: all ok; vision_random: YOLO+noise (slow, downloads model).",
+        help="lens_streak: smudge warning; lens_sharp: all ok; vision_random: YOLOv8n+noise (slow, downloads model).",
     )
     p.add_argument("--n-sharp", type=int, default=2, help="lens_streak: sharp lead-in frames")
     p.add_argument("--n-blur", type=int, default=4, help="lens_streak: smeared tail frames")

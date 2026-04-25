@@ -6,9 +6,9 @@ struct ContentView: View {
     @EnvironmentObject private var app: AppViewModel
     @EnvironmentObject private var hearing: HearingEngine
     @State private var showingSettings = false
-    @AppStorage(BlindGuyFeatureKey.spatial3DBubble) private var spatial3DBubble: Bool = true
     @AppStorage(BlindGuyFeatureKey.payloadHUD) private var showPayloadHUD: Bool = true
     @AppStorage(BlindGuyFeatureKey.haptics) private var hapticsOn: Bool = true
+    @State private var speechMutedBanner = false
 
     var body: some View {
         Group {
@@ -43,6 +43,10 @@ struct ContentView: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: 20) {
+                        safetyDisclaimer
+                        if speechMutedBanner {
+                            mutedBanner
+                        }
                         statusStrip
                         if !app.modelAvailable { modelCallout }
                         visualStage
@@ -63,7 +67,7 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("BlindGuy")
                             .font(.title2.weight(.bold))
-                        Text("Spatial audio")
+                        Text("Realtime speech")
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                     }
@@ -105,8 +109,52 @@ struct ContentView: View {
             }
         }
         .tint(BlindGuyTheme.accent)
+        .overlay(alignment: .topLeading) {
+            TwoFingerDoubleTapCapture {
+                hearing.muteFor(seconds: 10)
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    speechMutedBanner = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        speechMutedBanner = false
+                    }
+                }
+            }
+        }
         .safeAreaInset(edge: .bottom) { scanDock }
         .preferredColorScheme(.dark)
+    }
+
+    private var safetyDisclaimer: some View {
+        Text("Assistive only. Distances are estimated and this does not replace a cane, guide dog, or orientation training.")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 2)
+            .accessibilityLabel("Safety note. Assistive only. Distances are estimated and this does not replace cane or guide dog.")
+    }
+
+    private var mutedBanner: some View {
+        HStack {
+            Image(systemName: "speaker.slash.fill")
+            Text("Speech muted for 10 seconds")
+            Spacer()
+            Text("Tap to unmute")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .font(.caption.weight(.semibold))
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+        )
+        .onTapGesture {
+            hearing.unmuteNow()
+            withAnimation(.easeInOut(duration: 0.2)) {
+                speechMutedBanner = false
+            }
+        }
     }
 
     private var statusStrip: some View {
@@ -118,10 +166,10 @@ struct ContentView: View {
                 color: hearing.isUsingOnDevicePayload ? BlindGuyTheme.accent : BlindGuyTheme.warmAlert
             )
             StatusChip(
-                systemImage: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "headphones" : "speaker.wave.2",
-                title: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "Spatial" : "Stereo",
-                subtitle: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "3D" : "2D",
-                color: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? BlindGuyTheme.info : BlindGuyTheme.warmAlert.opacity(0.85)
+                systemImage: "text.bubble",
+                title: "Speech",
+                subtitle: "Realtime",
+                color: BlindGuyTheme.info
             )
         }
     }
@@ -135,7 +183,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Add the vision model")
                         .font(.headline)
-                    Text("Include yolov8n.mlpackage in this app in Xcode, then build again. Optional lab setup is in Settings if your team needs it.")
+                    Text("Include yolov8n.mlpackage (from scripts/export_coreml.py) in this app in Xcode, then build again. Optional lab setup is in Settings if your team needs it.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -3,6 +3,8 @@ import Foundation
 /// Tuning aligned with `PRD.md` and Python `src/visual_engine/config.py`.
 public struct VisionConfiguration: Sendable {
     public var confidenceThreshold: Float
+    /// `intersection(bbox, image)) / area(bbox)` in PRD normalized coords. Drops mostly off-frame boxes.
+    public var minBboxAreaFractionInFrame: Double
     public var targetClassNames: Set<String>
     public var knownHeightsM: [String: Double]
     public var focalLengthPixels: Double
@@ -16,13 +18,14 @@ public struct VisionConfiguration: Sendable {
 
     public static let `default` = VisionConfiguration(
         confidenceThreshold: 0.58,
-        targetClassNames: [
+        minBboxAreaFractionInFrame: 0.7,
+        targetClassNames: Set([
             "person", "car", "bicycle", "motorcycle", "truck", "bus",
             "dog", "cat", "chair", "couch", "dining table", "potted plant",
             "backpack", "handbag", "suitcase", "cell phone", "laptop",
             "bottle", "cup", "umbrella", "traffic light", "fire hydrant",
             "stop sign", "bench",
-        ],
+        ]),
         knownHeightsM: [
             "person": 1.7,
             "car": 1.5,
@@ -61,6 +64,7 @@ public struct VisionConfiguration: Sendable {
 
     public init(
         confidenceThreshold: Float,
+        minBboxAreaFractionInFrame: Double = 0.7,
         targetClassNames: Set<String>,
         knownHeightsM: [String: Double],
         focalLengthPixels: Double,
@@ -73,6 +77,7 @@ public struct VisionConfiguration: Sendable {
         lensAnnouncementText: String = ""
     ) {
         self.confidenceThreshold = confidenceThreshold
+        self.minBboxAreaFractionInFrame = minBboxAreaFractionInFrame
         self.targetClassNames = targetClassNames
         self.knownHeightsM = knownHeightsM
         self.focalLengthPixels = focalLengthPixels

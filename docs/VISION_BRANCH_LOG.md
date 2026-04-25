@@ -14,6 +14,14 @@ This file is **append-only** (add new entries at the **top**). It records **visi
 
 ## 2026-04-25
 
+- **Vision revert + frame gate (later same day):** back to **YOLOv8n** / COCO; removed YOLO-World path and `yolo_world_s`. **Python** `bbox_in_frame` + **iOS** `VisionGeometry.prdBboxVisibleAreaFraction` require most of the bbox area inside the image. **`App/yolo_world_s.mlpackage` removed;** re-exported **`yolov8n.mlpackage`**.
+
+- **Vision model (Python + iOS):** default weights **`yolov8s-worldv2.pt`** (YOLO-World) instead of **`yolov8n.pt`**; CoreML export script outputs **`yolo_world_s.mlpackage`**. iOS loads **`yolo_world_s`** from the bundle, with fallback to legacy **`yolov8n`**.
+
+- **YOLO-World `set_classes` (blind / mobility threat list):** Python `yolo_world_classes.py` and CoreML export share **`THREAT_YOLO_WORLD_CLASSES`** (e.g. **dog, trash can, traffic cone, electric scooter, road users**). iOS `VisionConfiguration.threatYoloIndexOrder` + `YoloClassIndexSemantics`; **legacy** `yolov8n` uses **`.coco80`** in `AppViewModel` so numeric ids still map to COCO names. **Re-export** `yolo_world_s.mlpackage` after this change; old bundle without `set_classes` at export will not match the new id order.
+
+- **Threat prompt / canonical + CoreML in repo:** long CLIP disambiguation for **trash can** (vs hand bottle), stricter `min conf` and **min bbox height** for that class; Python and iOS aligned. `python3 scripts/export_coreml.py` (with `certifi` for SSL) produced **`App/yolo_world_s.mlpackage`**.
+
 - **Hearing (iOS `App/HearingEngine`):** removed tone **beeps** / `AVAudioEngine` clones; **spoken class names** (throttled) when **Say each object’s name** is on, optional **distance** when **Add distance in speech** is on; when the first is off, only **high-priority** lines if distance speech is on.
 
 - **iOS live preview:** `BlindGuyKit` **`CameraPipeline.captureSession`** + **`App/CameraFeedPreview.swift`** (`AVCaptureVideoPreviewLayer`); **`ContentView`** shows **“Live camera”** while **Start camera** (same session as YOLO ingest).
@@ -58,7 +66,7 @@ This file is **append-only** (add new entries at the **top**). It records **visi
 
 ## 2026-04-25
 
-- **Scaffolded Python vision service** (`src/visual_engine/`): Ultralytics **YOLOv8n**, six PRD classes, confidence **≥ 0.55**, monocular distance + pan, simple **object_id** tracking and **velocity_mps** / **priority**, **~15 Hz** emit with **10 Hz** fallback when average detection time exceeds the gate.
+- **Scaffolded Python vision service** (`src/visual_engine/`): Ultralytics **YOLOv8n** (`yolov8n.pt`), COCO class subset, confidence **≥ 0.55**, monocular distance + pan, simple **object_id** tracking and **velocity_mps** / **priority**, **~15 Hz** emit with **10 Hz** fallback when average detection time exceeds the gate.
 - **Flask bridge** (`app.py`, `main.py`): **`GET /health`**, **`GET /frame`**, **`POST /infer`** (JPEG body or multipart `image`), CORS; **`--no-local-camera`** for iPhone-only capture to Mac; default port **8765**.
 - **Contract** (`contracts.py`): `make_frame_payload` aligned with PRD; optional **`camera`** block when lens checks are on.
 - **Lens / smudge heuristic** (`lens_quality.py`): Laplacian variance on downscaled gray frame; consecutive low readings → **`lens_status: warning`** and **`lens_announce`** text; tunable via **`VisualConfig`**.
