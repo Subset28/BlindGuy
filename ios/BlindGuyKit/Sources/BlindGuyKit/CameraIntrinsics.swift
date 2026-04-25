@@ -95,11 +95,18 @@ public enum CameraIntrinsicsReader {
     }
 
     /// Row-major 3×3 K: indices 0 and 4 are fx and fy in typical iPhone camera matrices.
+    private static func dataFromSampleBufferAttachment(_ value: Any) -> Data? {
+        if let d = value as? Data { return d }
+        if let d = value as? NSData { return d as Data }
+        let cf = value as CFTypeRef
+        guard CFGetTypeID(cf) == CFDataGetTypeID() else { return nil }
+        return (cf as! CFData) as Data
+    }
+
     private static func focalFromIntrinsicAttachment(_ sampleBuffer: CMSampleBuffer) -> (Double, Double)? {
         let key = kCMSampleBufferAttachmentKey_CameraIntrinsicMatrix
-        guard let att = CMGetAttachment(sampleBuffer, key: key, attachmentTypeOut: nil) else { return nil }
-        let data = att as? Data ?? (att as? NSData).map { $0 as Data } ?? (att as? CFData).map { $0 as Data }
-        guard let d = data, d.count >= 9 * MemoryLayout<Float32>.size else { return nil }
+        guard let att = CMGetAttachment(sampleBuffer, key: key, attachmentModeOut: nil) else { return nil }
+        guard let d = dataFromSampleBufferAttachment(att), d.count >= 9 * MemoryLayout<Float32>.size else { return nil }
         let floats: [Float] = d.withUnsafeBytes { buf in
             Array(buf.bindMemory(to: Float32.self).prefix(9).map { Float($0) })
         }
@@ -118,7 +125,7 @@ extension AVCaptureDevice.DeviceType {
         case .builtInUltraWideCamera: return 0.5
         case .builtInWideAngleCamera: return 1.0
         case .builtInTelephotoCamera: return 2.0
-        @unknown default: return 1.0
+        default: return 1.0
         }
     }
 }

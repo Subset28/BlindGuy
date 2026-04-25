@@ -37,6 +37,10 @@ let session = BlindGuySession(engine: engine)
 
 Use the **Vision + NMS** export so `VNRecognizedObjectObservation` is produced. If you see zero detections, re-export with `nms=True` (the script does) and confirm the model is in **Copy Bundle Resources**.
 
+### Hybrid open-vocabulary (bundled as `yoloe-26n-seg.mlpackage`)
+
+A **second** CoreML run uses **text prompts baked in at export** (no on-device text encoder). The **repo** includes **`App/yoloe-26n-seg.mlpackage`**, built with `scripts/export_yoloe_open_vocab.py` (YOLOv8s-Worldv2 + prompts `computer`, `trash can`, `stairs` — YOLOE-26 CoreML is currently broken in upstream ultralytics). `VisionConfiguration.openVocabularyClassListOrdered` must match `set_classes` order. COCO (YOLOv8n) and open-voc are **merged**; on overlap, **COCO wins** (`openVocabularySuppressIfCocoIou`). Spoken names for the demo: **Person, Computer, Table, Chair, Trash can, Stairs** via `ObjectSpokenName` in `SpeechSupport.swift`.
+
 ## 3) Camera → `BlindGuySession` (use **`CameraPipeline`**)
 
 **`CameraPipeline.swift`** already wires **back camera, VGA, BGRA** → **`BlindGuySession.ingest`**. The app only needs to hold one instance, `await start()`, and `stop()` on teardown. Add **`NSCameraUsageDescription`** in the app `Info.plist`.

@@ -16,9 +16,15 @@ final class AppViewModel: ObservableObject {
     @Published var isScanning: Bool = false
     @Published var modelAvailable: Bool = false
 
-    /// Pretrained YOLOv8n (COCO-80) CoreML bundle.
-    private static func loadBundledDetector() -> CoreMLDetector? {
-        try? CoreMLDetector(modelResourceName: "yolov8n", bundle: .main)
+    /// YOLOv8n (COCO-80) + optional YOLOE-26n-seg open-vocab CoreML; second bundle must be exported with the same class list as `VisionConfiguration` (see `scripts/export_yoloe_open_vocab.py`).
+    private static func makeVisionEngine() -> OnDeviceVisionEngine? {
+        guard let primary = try? CoreMLDetector(modelResourceName: "yolov8n", bundle: .main) else { return nil }
+        let open: OpenVocabularyCoreMLDetector? = try? OpenVocabularyCoreMLDetector(
+            modelResourceName: "yoloe-26n-seg",
+            bundle: .main,
+            config: primary.config
+        )
+        return OnDeviceVisionEngine(primary: primary, openVocabulary: open)
     }
 
     let hearing: HearingEngine
@@ -32,8 +38,7 @@ final class AppViewModel: ObservableObject {
         hearingSink = hearing.objectWillChange.sink { [weak self] _ in
             self?.objectWillChange.send()
         }
-        if let detector = AppViewModel.loadBundledDetector() {
-            let eng = OnDeviceVisionEngine(detector: detector)
+        if let eng = AppViewModel.makeVisionEngine() {
             let s = BlindGuySession(engine: eng)
             session = s
             modelAvailable = true

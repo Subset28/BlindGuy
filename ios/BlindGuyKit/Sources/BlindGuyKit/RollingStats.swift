@@ -8,7 +8,7 @@ public struct RollingWindowStats: Sendable {
     private var head: Int
 
     public init(windowSize: Int = 30) {
-        let n = max(1, windowSize)
+        let n = Swift.max(1, windowSize)
         self.windowSize = n
         self.values = [Double](repeating: 0, count: n)
         self.count = 0
@@ -49,7 +49,10 @@ public struct RollingWindowStats: Sendable {
             }
         }
         copy.sort()
-        return copy[min(max(0, Int(Double(max(0, copy.count - 1)) * 0.95)), max(0, copy.count - 1))]
+        let last = copy.count - 1
+        let p95Index = Int(Double(last) * 0.95)
+        let idx = Swift.min(Swift.max(0, p95Index), last)
+        return copy[idx]
     }
 
     public var max: Double {

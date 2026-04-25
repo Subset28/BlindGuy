@@ -57,7 +57,9 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
 
     private let cooldownSameTrackSeconds: TimeInterval = 7.0
     private let cooldownSameSpatialCellSeconds: TimeInterval = 4.0
-    private let cooldownSameClassSeconds: TimeInterval = 4.0
+    private static let cooldownSameClassSeconds: TimeInterval = 4.0
+    /// Large static furniture can split into many tracks; longer cooldown limits repeat labels.
+    private static let cooldownSameFurnitureClassSeconds: TimeInterval = 10.0
     private let minIntervalAnySpeechSeconds: TimeInterval = 0.85
     private let peopleGroupCooldownSeconds: TimeInterval = 7.0
     private let maxAnnouncementsPerFrame: Int = 1
@@ -584,7 +586,8 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             }
             lastPeopleGroupSpokenAt = now
         }
-        if let last = lastSpokenByClass[classKey], now.timeIntervalSince(last) < cooldownSameClassSeconds {
+        let classGap = Self.cooldownSecondsForClass(classKey)
+        if let last = lastSpokenByClass[classKey], now.timeIntervalSince(last) < classGap {
             telemetryDrop(.dedupe)
             return false
         }
@@ -628,7 +631,23 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         if t == "truck" || t == "bus" || t == "car" { return 3.0 }
         if t == "bicycle" || t == "motorcycle" { return 1.5 }
         if t == "person" { return 1.0 }
+        // Electronics / open-voc "computer" + COCO laptop, tv, …
+        if t == "laptop" || t == "tv" || t == "cell phone" || t == "computer" { return 2.0 }
+        if t == "keyboard" || t == "mouse" || t == "remote" { return 1.5 }
+        // Open-vocab hazards (demo: trash can, stairs).
+        if t == "stairs" || t == "trash can" { return 1.85 }
+        // Deprioritize vs. electronics for ranked speech when both appear (e.g. desk with monitor + table).
+        if t == "dining table" || t == "couch" || t == "chair" || t == "bench" || t == "bed" { return 0.78 }
         return 1.0
+    }
+
+    private static let longClassCooldownFurniture: Set<String> = [
+        "dining table", "couch", "chair", "bed", "bench", "potted plant"
+    ]
+
+    private static func cooldownSecondsForClass(_ classKey: String) -> TimeInterval {
+        if longClassCooldownFurniture.contains(classKey) { return cooldownSameFurnitureClassSeconds }
+        return cooldownSameClassSeconds
     }
 
     /// Picks a voice for the current "Voice" setting. "Compact" prefers small on-device (default) voices, not the soothing sort.
@@ -747,7 +766,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty else { return "Unknown" }
         if t.contains("_") { return t.replacingOccurrences(of: "_", with: " ") }
-        return t.prefix(1).uppercased() + t.dropFirst().lowercased()
+        return ObjectSpokenName.phrase(t)
     }
 
     // MARK: - AVSpeechSynthesizerDelegate

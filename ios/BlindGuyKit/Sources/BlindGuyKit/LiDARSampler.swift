@@ -23,9 +23,12 @@ public func sampleDepth(from frame: ARFrame, bbox: CGRect) -> LiDARSample {
     guard let depthData = frame.smoothedSceneDepth else {
         return LiDARSample(distanceM: 0, confidence: .low, isValid: false)
     }
-
-    let depthMap = depthData.depthMap
-    let confMap = depthData.confidenceMap
+    // `depthMap` / `confidenceMap` are `CVPixelBuffer` on some SDKs and optional on others; promote to `CVPixelBuffer?` uniformly.
+    let depthMapBox: CVPixelBuffer? = depthData.depthMap
+    let confMapBox: CVPixelBuffer? = depthData.confidenceMap
+    guard let depthMap = depthMapBox, let confMap = confMapBox else {
+        return LiDARSample(distanceM: 0, confidence: .low, isValid: false)
+    }
 
     CVPixelBufferLockBaseAddress(depthMap, .readOnly)
     CVPixelBufferLockBaseAddress(confMap, .readOnly)

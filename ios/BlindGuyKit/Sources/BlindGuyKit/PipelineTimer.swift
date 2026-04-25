@@ -14,7 +14,7 @@ public final class PipelineTimer: @unchecked Sendable {
 
     private var starts: [CFAbsoluteTime] = [CFAbsoluteTime](repeating: 0, count: Stage.allCases.count)
     private var durations: [Double] = [Double](repeating: 0, count: Stage.allCases.count)
-    private var unfair = os_unfair_lock_t()
+    private var unfair = os_unfair_lock()
 
     public init() {}
 

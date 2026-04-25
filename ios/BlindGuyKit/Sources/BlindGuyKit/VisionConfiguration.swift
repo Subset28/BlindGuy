@@ -15,6 +15,13 @@ public struct VisionConfiguration: Sendable {
     public var lensWarnConsecutive: Int
     public var lensCheckMaxSide: Int
     public var lensAnnouncementText: String
+    // MARK: - Open vocabulary (text prompts baked into CoreML at export). Shipped model: YOLOv8s-Worldv2 (YOLOE-26 CoreML export is broken in ultralytics 8.4.x); see `scripts/export_yoloe_open_vocab.py`.
+    public var openVocabularyClassListOrdered: [String]
+    public var openVocabularyConfidenceThreshold: Float
+    /// Run the open-vocab model every N vision frames (1 = every frame, 2 = half rate). When no OV model, ignored.
+    public var openVocabularyRunInterval: Int
+    /// If IoU( COCO, open ) ≥ this, drop the open-vocab box and keep COCO.
+    public var openVocabularySuppressIfCocoIou: Double
 
     public static let `default` = VisionConfiguration(
         confidenceThreshold: 0.58,
@@ -23,6 +30,7 @@ public struct VisionConfiguration: Sendable {
             "person", "car", "bicycle", "motorcycle", "truck", "bus",
             "dog", "cat", "chair", "couch", "dining table", "potted plant",
             "backpack", "handbag", "suitcase", "cell phone", "laptop",
+            "tv", "keyboard", "mouse", "remote",
             "bottle", "cup", "umbrella", "traffic light", "fire hydrant",
             "stop sign", "bench",
         ]),
@@ -39,6 +47,10 @@ public struct VisionConfiguration: Sendable {
             "couch": 0.90,
             "dining table": 0.75,
             "laptop": 0.24,
+            "tv": 0.50,
+            "keyboard": 0.05,
+            "mouse": 0.04,
+            "remote": 0.03,
             "cell phone": 0.15,
             "bottle": 0.25,
             "cup": 0.12,
@@ -51,6 +63,9 @@ public struct VisionConfiguration: Sendable {
             "umbrella": 1.00,
             "potted plant": 0.6,
             "handbag": 0.3,
+            "stairs": 0.25,
+            "trash can": 0.9,
+            "computer": 0.45,
         ],
         knownWidthsM: [
             "person": 0.50,
@@ -62,6 +77,10 @@ public struct VisionConfiguration: Sendable {
             "couch": 1.80,
             "dining table": 1.20,
             "laptop": 0.32,
+            "tv": 0.90,
+            "keyboard": 0.45,
+            "mouse": 0.10,
+            "remote": 0.08,
             "dog": 0.60,
             "cat": 0.40,
             "bench": 1.50,
@@ -77,6 +96,8 @@ public struct VisionConfiguration: Sendable {
             "traffic light": 0.4,
             "fire hydrant": 0.45,
             "stop sign": 0.6,
+            "trash can": 0.45,
+            "computer": 0.55,
         ],
         minEmitInterval: 1.0 / 15.0,
         highPriorityDistanceM: 3.0,
@@ -84,7 +105,13 @@ public struct VisionConfiguration: Sendable {
         lensLaplacianThreshold: 100,
         lensWarnConsecutive: 4,
         lensCheckMaxSide: 400,
-        lensAnnouncementText: ""
+        lensAnnouncementText: "",
+        openVocabularyClassListOrdered: [
+            "computer", "trash can", "stairs"
+        ],
+        openVocabularyConfidenceThreshold: 0.42,
+        openVocabularyRunInterval: 1,
+        openVocabularySuppressIfCocoIou: 0.5
     )
 
     public init(
@@ -99,7 +126,11 @@ public struct VisionConfiguration: Sendable {
         lensLaplacianThreshold: Double = 100,
         lensWarnConsecutive: Int = 4,
         lensCheckMaxSide: Int = 400,
-        lensAnnouncementText: String = ""
+        lensAnnouncementText: String = "",
+        openVocabularyClassListOrdered: [String] = VisionConfiguration.default.openVocabularyClassListOrdered,
+        openVocabularyConfidenceThreshold: Float = 0.45,
+        openVocabularyRunInterval: Int = 2,
+        openVocabularySuppressIfCocoIou: Double = 0.5
     ) {
         self.confidenceThreshold = confidenceThreshold
         self.minBboxAreaFractionInFrame = minBboxAreaFractionInFrame
@@ -113,6 +144,10 @@ public struct VisionConfiguration: Sendable {
         self.lensWarnConsecutive = lensWarnConsecutive
         self.lensCheckMaxSide = lensCheckMaxSide
         self.lensAnnouncementText = lensAnnouncementText
+        self.openVocabularyClassListOrdered = openVocabularyClassListOrdered
+        self.openVocabularyConfidenceThreshold = openVocabularyConfidenceThreshold
+        self.openVocabularyRunInterval = openVocabularyRunInterval
+        self.openVocabularySuppressIfCocoIou = openVocabularySuppressIfCocoIou
     }
 
     public func knownHeightMeters(for className: String) -> Double? {
@@ -127,5 +162,14 @@ public struct VisionConfiguration: Sendable {
 
     public func hasKnownPhysicalSize(for className: String) -> Bool {
         knownHeightMeters(for: className) != nil || knownWidthMeters(for: className) != nil
+    }
+
+    public func isOpenVocabularyClass(_ className: String) -> Bool {
+        let k = className.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return openVocabularyClassListOrdered.contains { $0.lowercased() == k }
+    }
+
+    public func shouldRunOpenVocabularyPass(forFrameIndex frameId: Int) -> Bool {
+        openVocabularyRunInterval > 0 && frameId % openVocabularyRunInterval == 0
     }
 }

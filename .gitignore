@@ -1,5 +1,10 @@
 # Ultralytics download (re-export with scripts/export_coreml.py)
 yolov8n.pt
+yoloe-26n-seg.pt
+
+# YOLOE / open-voc export cache (242MB+; never commit)
+mobileclip2_b.ts
+scripts/.yoloe_export_work/
 
 .venv/
 __pycache__/

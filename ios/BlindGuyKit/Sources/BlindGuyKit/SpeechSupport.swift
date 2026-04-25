@@ -41,6 +41,25 @@ public struct DistanceFrameSample: Sendable {
     }
 }
 
+/// TTS label for a detector class key (COCO: `dining table`, `laptop`, …; open-vocab: `computer`, `trash can`, `stairs`).
+public enum ObjectSpokenName: Sendable {
+    public static func phrase(_ raw: String) -> String {
+        let k = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if k.isEmpty { return "Object" }
+        switch k {
+        case "dining table": return "Table"
+        case "laptop", "tv", "keyboard", "mouse", "remote", "computer": return "Computer"
+        case "person": return "Person"
+        case "chair": return "Chair"
+        case "trash can": return "Trash can"
+        case "stairs": return "Stairs"
+        case "cell phone": return "Phone"
+        default:
+            return k.prefix(1).uppercased() + k.dropFirst().lowercased()
+        }
+    }
+}
+
 public protocol DistanceConfidenceAssessing: Sendable {
     mutating func assess(_ sample: DistanceFrameSample, hasKnownPhysicalSize: Bool) -> DistanceAssessment
 }
@@ -270,7 +289,7 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
     public init() {}
 
     public func phrase(objectClass: String, panValue: Double, distance: DistanceAssessment, units: String) -> String {
-        let h = humanize(objectClass)
+        let h = ObjectSpokenName.phrase(objectClass)
         if distance.confidence == .unavailable {
             return "\(h) detected"
         }
@@ -342,11 +361,6 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
         }
     }
 
-    private func humanize(_ raw: String) -> String {
-        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !t.isEmpty else { return "Object" }
-        return t.prefix(1).uppercased() + t.dropFirst().lowercased()
-    }
 }
 
 public protocol DedupePolicyProtocol: Sendable {
