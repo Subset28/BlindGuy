@@ -28,6 +28,12 @@ struct OnboardingView: View {
             description: "Zero cloud. Zero latency. Your privacy is absolute. Processing happens entirely on your Neural Engine.",
             icon: "cpu",
             color: .orange
+        ),
+        OnboardingPage(
+            title: "Lanyard Setup",
+            description: "Wear your iPhone on a lanyard or chest mount. Our UI is designed for zero-touch interaction so you can focus on the path ahead.",
+            icon: "person.and.arrow.left.and.arrow.right",
+            color: .red
         )
     ]
     
@@ -115,6 +121,8 @@ struct OnboardingContent: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(page.title). \(page.description)")
             
             Spacer()
         }
