@@ -134,11 +134,26 @@ def _smoke_contract() -> None:
         raise AssertionError(err)
 
 
+def _smoke_simulation() -> None:
+    from .simulation import SimulationEngine
+
+    e = SimulationEngine()
+    rep = e.run_lens_streak(n_sharp=2, n_blur=4)
+    if not rep.ok():
+        raise AssertionError(rep.validation_errors)
+    cams = [p.get("camera") for p in rep.payloads if p.get("camera")]
+    if not cams or not any(
+        isinstance(c, dict) and c.get("lens_status") == "warning" for c in cams
+    ):
+        raise AssertionError("lens_streak sim should end with at least one lens warning")
+
+
 def run_built_in_smoke() -> TestReport:
     r = TestReport()
     for name, fn in [
         ("smoke_contract", _smoke_contract),
         ("smoke_lens", _smoke_lens),
+        ("smoke_simulation", _smoke_simulation),
     ]:
         try:
             fn()

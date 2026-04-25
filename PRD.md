@@ -342,9 +342,11 @@ This section is the **living index** of what exists in the repo today. Update it
 | `app.py` | **Flask** `VisionService`, `GET /health`, `GET /frame`, `POST /infer`, CORS; optional local webcam; merges detections + lens into one payload. |
 | `main.py` | CLI: `--host`, `--port`, `--camera-index`, `--confidence`, `--focal-length-px`, `--emit-hz`, **`--no-local-camera`**. |
 | `calibration.py` | CLI: compute **`focal_length_px`** from measured height/distance and bbox height samples. |
-| `testing_engine.py` | **Testing engine:** `validate_frame_payload`, `run_built_in_smoke` / `TestReport`; no pytest required. Run: `PYTHONPATH=src python -m visual_engine.testing_engine`. |
+| `testing_engine.py` | **Testing engine:** `validate_frame_payload`, `run_built_in_smoke` / `TestReport` (includes **`smoke_simulation`**); no pytest required. Run: `PYTHONPATH=src python -m visual_engine.testing_engine`. |
+| `synthesis.py` | **Synthetic BGR** images: random sharp, Gaussian blur, **uniform** field, **lens_streak_sequence** (labelled sharp/blur) — no camera. |
+| `simulation.py` | **Simulation engine:** `SimulationEngine` + **`SimulationReport`**; scenarios **`lens_streak`**, **`lens_sharp`**, **`vision_random`** (lazy-imports YOLO). CLI: `python -m visual_engine.simulation`. **Does not** require `ultralytics` for lens-only scenarios. |
 
-**Tests:** `tests/` (pytest), `pytest.ini` (`pythonpath = src`). Run: `pytest -q` after `pip install -r requirements.txt`.
+**Tests:** `tests/` (pytest), `pytest.ini` (`pythonpath = src`, marker **`slow`** for YOLO). Run: `pytest -q` after `pip install -r requirements.txt`. Skip slow: `pytest -m "not slow"`.
 
 **Top-level `requirements.txt`:** `flask`, `numpy`, `opencv-python`, `ultralytics`, `pytest` (and transitive deps).
 

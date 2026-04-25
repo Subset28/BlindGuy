@@ -86,3 +86,16 @@ PYTHONPATH=src python3 -m visual_engine.testing_engine
 ```
 
 The same validators live in `src/visual_engine/testing_engine.py` (`validate_frame_payload`, `run_built_in_smoke`).
+
+### 8) Simulation (no camera, no phone)
+
+Synthetic BGR frames for bench demos and CI (lens path never needs YOLO):
+
+```bash
+PYTHONPATH=src python3 -m visual_engine.simulation --scenario lens_streak
+PYTHONPATH=src python3 -m visual_engine.simulation --scenario lens_sharp
+# slow: requires ultralytics + yolov8n download
+PYTHONPATH=src python3 -m visual_engine.simulation --scenario vision_random --frames 1
+```
+
+Use `--print` for full JSON (with payload array) or `--payloads-only` for the frame list only.

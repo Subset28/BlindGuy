@@ -44,4 +44,3 @@ def make_frame_payload(
     if camera is not None:
         payload["camera"] = camera
     return payload
-
