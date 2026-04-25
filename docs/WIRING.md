@@ -29,10 +29,12 @@ Use this as a **checklist** to connect camera → vision → consumers. Deeper A
 - Same **`FramePayload`** JSON (decode server responses the same as on-device `Codable`).
 - Send JPEGs to **`POST /infer`**, or poll **`GET /frame`**. CORS and ATS exceptions for local HTTP are documented in [visual-integration.md](visual-integration.md).
 
-## 4. Audio / spatial
+## 4. Hearing (spatial audio)
 
-- Input: **`FramePayload`**, in particular **`objects[]`**: `class`, `object_id`, **`pan_value`**, **`distance_m`**, `confidence` (and **`camera`** for lens TTS, which `BlindGuySession` can already speak on iOS).
-- Map fields into your existing spatialization rules; keep **`object_id`** stable for **continuous** cues across frames.
+- **Swift on-device:** subscribe to **`BlindGuySession.$lastPayload`**. Types in **`ios/BlindGuyKit/.../ContractModels.swift`**: **`FramePayload`**, arrays of **`DetectedObjectDTO`** on **`objects`**. Per detection in Swift: **`objectId`**, **`objectClass`**, **`panValue`**, **`distanceM`**, **`velocityMps`**, **`priority`**, **`confidence`**, **`bbox`**. Server / Python JSON uses the same contract with **snake_case** keys; see **`docs/contract.example.json`**.
+- **Lens:** `FramePayload.camera` (**`CameraHealthDTO`**). iOS TTS for smudge lines is built into **`BlindGuySession`**; your spatial engine can ignore **`camera`** or add haptics.
+- **Python or another process:** decode **`GET /frame`** / **`POST /infer`** the same way.
+- Keep **`objectId`** (JSON: **`object_id`**) **stable** across frames for **continuous** cues.
 
 ## 5. Quality gates before shipping a build
 
@@ -46,4 +48,4 @@ Use this as a **checklist** to connect camera → vision → consumers. Deeper A
 |--------|------|
 | **Visual (this repo)** | YOLO / CoreML → **`FramePayload`**, Flask bridge, simulation |
 | **iOS app** | Session lifecycle, camera permissions, `CameraPipeline`, routing JSON to UI/Audio |
-| **Audio** | Pan/distance/identity **semantics** from **`objects[]`** |
+| **Hearing** | Map **`panValue` / `distanceM` / `objectId`** (and the rest) from **`objects`**, or the same fields from **JSON** |

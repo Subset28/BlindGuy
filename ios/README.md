@@ -2,7 +2,14 @@
 
 This folder contains **`BlindGuyKit`**, a Swift package that runs **YOLOv8n on-device** via **CoreML + Vision** and produces the **same JSON-shaped `FramePayload`** as the Python reference server (`docs/contract.example.json`).
 
-Your **UI/UX** teammate can add the package to an Xcode app and bind SwiftUI to `BlindGuySession`. Your **Audio** teammate reads `lastPayload?.objects` (or subscribes with a thin adapter) and maps `class`, `pan_value`, `distance_m`, `object_id` into spatial audio.
+## Team handoff (Visual is wired; you plug the app + audio)
+
+| Who | You touch | What’s already in `BlindGuyKit` |
+|-----|-----------|---------------------------------|
+| **UI / UX** | Xcode app target, `Info.plist`, black UI / lanyard layout from PRD | `CoreMLDetector` → `OnDeviceVisionEngine` → `BlindGuySession`; **`CameraPipeline`** → `ingest` (or roll your own `AVCapture` → `ingest`). |
+| **Hearing / Audio** | Spatialization and routing in your module | **Subscribe to** `BlindGuySession` **`$lastPayload`**. For each `FramePayload`, use **`objects`** as `[DetectedObjectDTO]` (`ContractModels.swift`). Primary cue fields: **`objectId`**, **`objectClass`**, **`panValue`**, **`distanceM`**, **`velocityMps`**, **`priority`**, **`confidence`**. JSON keys when decoding from the server match `docs/contract.example.json` (snake_case). |
+
+`docs/WIRING.md` is the one-page E2E checklist. Python bridge: root **`README.md`** and **`docs/visual-integration.md`**.
 
 ## 1) Add the package in Xcode
 
@@ -28,22 +35,31 @@ let session = BlindGuySession(engine: engine)
 
 Use the **Vision + NMS** export so `VNRecognizedObjectObservation` is produced. If you see zero detections, re-export with `nms=True` (the script does) and confirm the model is in **Copy Bundle Resources**.
 
-## 3) Wire `AVCaptureSession` (minimal pattern)
+## 3) Camera → `BlindGuySession` (use **`CameraPipeline`**)
 
-- **Session preset:** prefer **`AVCaptureSession.Preset.vga640x480`** or **`hd1280x720`** for a balance of speed and range; lower resolution reduces Neural Engine load.
-- **Frame rate:** cap to **15–30 fps** with `activeVideoMinFrameDuration` / `Max` as needed.
-- **Queue:** implement `AVCaptureVideoDataOutputSampleBufferDelegate` on a **serial** `DispatchQueue` (not the main queue). In `captureOutput`, get `CMSampleBuffer` → `CVPixelBuffer`, then call:
+**`CameraPipeline.swift`** already wires **back camera, VGA, BGRA** → **`BlindGuySession.ingest`**. The app only needs to hold one instance, `await start()`, and `stop()` on teardown. Add **`NSCameraUsageDescription`** in the app `Info.plist`.
 
 ```swift
-session.ingest(
-    pixelBuffer: pixelBuffer,
-    orientation: .right // use the correct CGImagePropertyOrientation for your camera + device rotation
-)
+// After you have: BlindGuySession (see §2)
+@State private var camera: CameraPipeline?
+
+// Example lifecycle (e.g. .task + onDisappear):
+if camera == nil { camera = CameraPipeline(vision: vision) } // `vision` is your BlindGuySession
+try? await camera?.start()
+// …
+camera?.stop()
 ```
 
-- **Orientation** must match the buffer. Wrong orientation breaks `pan_value` and distance. Use Apple’s guidance for mapping `UIDeviceOrientation` / connection to `CGImagePropertyOrientation`.
+Override **`init(vision:imageOrientation:)`** if the lanyard mount is not the default **`.right`** (wrong orientation breaks **`panValue`** and distance).
+
+### Manual `AVCaptureSession` (only if you need a custom graph)
+
+- **Session preset:** **`vga640x480`** or **`hd1280x720`**. **Frame rate:** cap to **15–30 fps** with `activeVideoMinFrameDuration` / `Max`.
+- **Queue:** `AVCaptureVideoDataOutput` delegate on a **serial** `DispatchQueue` (not the main thread). In `captureOutput`, `CVPixelBuffer` → **`vision.ingest(pixelBuffer:orientation:)`** with the correct **`CGImagePropertyOrientation`**.
 
 ## 4) SwiftUI
+
+Hearing can **`Combine` sink** on **`vision.objectWillChange`** or the session’s published **`$lastPayload`**. For a quick UI probe, use **`vision.lastPayload`**. For logs or a debug HUD, **`try payload.jsonString(prettyPrinted: true)`** (`FramePayload+JSON.swift`).
 
 ```swift
 struct LanyardRoot: View {
