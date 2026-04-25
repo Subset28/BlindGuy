@@ -1,0 +1,104 @@
+import CoreML
+import Foundation
+import Vision
+
+public enum ModelLoadError: Error {
+    case fileNotFound(String)
+    case modelLoadFailed(Error)
+}
+
+/// Wraps a CoreML YOLO (Ultralytics export with NMS) for Vision. Prefer an export with `nms=True` so
+/// `VNRecognizedObjectObservation` is produced.
+public final class CoreMLDetector: @unchecked Sendable {
+    public let config: VisionConfiguration
+    private let visionModel: VNCoreMLModel
+
+    public init(modelURL: URL, config: VisionConfiguration = .default) throws {
+        self.config = config
+        do {
+            let m = try MLModel(contentsOf: modelURL)
+            self.visionModel = try VNCoreMLModel(for: m)
+        } catch {
+            throw ModelLoadError.modelLoadFailed(error)
+        }
+    }
+
+    /// Bundle resource name without extension, e.g. `yolov8n` for `yolov8n.mlpackage` compiled to `yolov8n.mlmodelc`
+    public convenience init(modelResourceName: String, bundle: Bundle, config: VisionConfiguration = .default) throws {
+        var url = bundle.url(forResource: modelResourceName, withExtension: "mlmodelc")
+        if url == nil {
+            url = bundle.url(forResource: modelResourceName, withExtension: "mlpackage")
+        }
+        guard let u = url else {
+            throw ModelLoadError.fileNotFound(modelResourceName)
+        }
+        try self.init(modelURL: u, config: config)
+    }
+
+    public func makeRequest(
+        handler: @escaping VNRequestCompletionHandler
+    ) -> VNCoreMLRequest {
+        let r = VNCoreMLRequest(model: visionModel, completionHandler: handler)
+        r.imageCropAndScaleOption = .scaleFill
+        r.preferBackgroundProcessing = true
+        return r
+    }
+
+    func buildObservations(
+        from request: VNRequest,
+        error: (any Error)?,
+        imageWidth: Int,
+        imageHeight: Int
+    ) -> [RawDetection] {
+        if let error {
+            #if DEBUG
+            print("BlindGuyKit CoreML: \(error.localizedDescription)")
+            #endif
+            return []
+        }
+        guard let results = request.results as? [VNRecognizedObjectObservation] else {
+            return []
+        }
+
+        var out: [RawDetection] = []
+        for obs in results {
+            guard let top = obs.labels.first else { continue }
+            let conf = top.confidence
+            guard conf >= config.confidenceThreshold else { continue }
+            let rawName = COCOMapping.normalizedName(from: top.identifier) ?? top.identifier
+            guard let name = mapToCanonicalClass(rawName: rawName) else { continue }
+            guard config.targetClassNames.contains(name) else { continue }
+
+            let (xc, yc, w, h) = VisionGeometry.prdBoxFromVisionBoundingBox(obs.boundingBox)
+            let hPx = max(1, h * Double(imageHeight))
+            let dist = VisionGeometry.monocularDistanceM(
+                className: name,
+                knownHeightsM: config.knownHeightsM,
+                focalLengthPx: config.focalLengthPixels,
+                bboxHeightPx: hPx
+            )
+            let pan = VisionGeometry.panValue(xCenterNorm: xc)
+            out.append(
+                RawDetection(
+                    className: name,
+                    confidence: Double(conf),
+                    xCenterNorm: xc,
+                    yCenterNorm: yc,
+                    widthNorm: w,
+                    heightNorm: h,
+                    distanceM: dist,
+                    panValue: pan
+                )
+            )
+        }
+        return out
+    }
+
+    private func mapToCanonicalClass(rawName: String) -> String? {
+        let t = rawName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        if config.targetClassNames.contains(t) { return t }
+        return nil
+    }
+}

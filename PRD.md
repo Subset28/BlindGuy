@@ -2,31 +2,42 @@
 **Academies Hacks 2026 | Theme: CLONING**
 **Prepared by:** Senior Technical Product Manager
 **Deadline:** 24 Hours | **Team Size:** 3 Developers
-**Version:** 1.0 — COMPETITION DRAFT
+**Version:** 1.2 — COMPETITION DRAFT (as-built: Visual + iOS kit + tests + lens health)
+
+> **PRD maintenance (engineering):** When behavior or the JSON contract changes, update **§4**, **§4.1**, and **§4.2** in this file, bump the **Version** line (minor for contract/tooling, patch for typos), and keep **`docs/contract.example.json`**, **`README.md`**, and **`docs/visual-integration.md`** in sync. Append a dated line to **`docs/VISION_BRANCH_LOG.md`** for every **Visual**-scoped change. This file is the single narrative source for judges + teammates; the repo is the source of truth for exact flags and filenames.
+
+**Ship target (this team):** **iPhone (iOS)** on the user’s body (lanyard or chest mount), with **AirPods Pro** for spatial output. The phone is the camera and the runtime for **Swift** (UI/UX + Audio). Vision ML is **YOLOv8n**; production inference is **on-device** (see Edge Processing). A **local Python bridge** in this repo is for integration and dev only (see below).
 
 ---
 
 ## 1. Concept & Theme Alignment
-... [content omitted for brevity] ...
+
+**Theme (CLONING):** The product “clones” the physical world into a **3D auditory twin** — not a list of labels, but spatial audio objects that move with real objects (position, distance, priority).
+
+**Who it is for:** People who are blind or have low vision navigating streets where many hazards are **visually** obvious but **acoustically** silent (EVs, e‑bikes, etc.).
+
+**What success looks like:** **Sub‑100ms** perception-to-audio for relevant objects in class scope, with **on-device** inference and **no cloud dependency** during live use (pitch requirement).
 
 ---
 
 ## 🚀 The Winning Code Stack
 
-To achieve sub-100ms latency and "utter beauty," we are utilizing a high-performance hybrid stack:
+To achieve sub-100ms latency and "utter beauty," we are using a **hybrid** stack. **Primary delivery is iOS (iPhone).** Android-specific APIs below are **optional** if the team ships iOS only.
 
-### **Mobile (The Sensor & Output)**
-- **Language**: **Java (Android Native)**. We need direct access to the `Camera2` API and high-priority `AudioTrack` threads to minimize hardware-to-software latency.
-- **Spatial Audio**: **Resonance Audio SDK**. This provides the HRTF (Head-Related Transfer Function) simulation needed to make the "Audio Clones" feel three-dimensional.
+### **Mobile (The Sensor & Output) — iPhone (primary)**
+- **Language / UI:** **Swift** + **SwiftUI** (zero-touch lanyard UI, judge debug surface).
+- **Camera & mic:** **AVFoundation** (capture path on the phone).
+- **Spatial audio (iOS):** **AVAudioEngine** with **`AVAudioEnvironmentNode`** (Apple HRTF). AirPods Pro for binaural output; head tracking is a **bonus** if time allows.
+- **(Alternate / not required for this team)** Android + `Camera2` + `AudioTrack` + Resonance Audio if a separate Android build is ever scoped.
 
 ### **AI Engine (The Vision)**
-- **Model**: **YOLOv8 (Nano)**.
-- **Inference**: **TensorFlow Lite (TFLite)** with **GPU Delegate**. The model will be quantized to **INT8** to run entirely on the mobile NPU/GPU, bypassing the CPU to keep frames-per-second high.
+- **Model:** **YOLOv8 (Nano)** — `yolov8n` (Ultralytics / export to **CoreML** `.mlpackage` for on-device iOS).
+- **On-device iOS (target):** **CoreML** + Neural Engine / GPU (quantized **INT8** when exported for deployment).
+- **Reference / dev (this repo, `Visual` branch):** **Python 3** + `ultralytics` + `opencv-python` for camera or **JPEG-in** inference, exposing the **same JSON contract** as the app will use after CoreML export.
 
 ### **Cloud & Dashboard (The Judge Experience)**
-- **Backend**: **Python (FastAPI)**. Fast, asynchronous, and perfect for handling the telemetry bridge.
-- **Hosting**: **Google Cloud Platform (GCP) Cloud Run**. Scalable, low-latency container hosting.
-- **Real-time Sync**: **Firebase Realtime Database**. This acts as the "Bridge" to mirror the mobile device's auditory clones onto the Judge's web dashboard instantly.
+- **Optional** for the live user path. Local-only operation is a **sponsor and safety story**.
+- **If used:** **Python (FastAPI)** on **GCP Cloud Run** + **Firebase** for a judge dashboard is acceptable for demo telemetry — **not** for mandatory live inference.
 
 ---
 
@@ -115,8 +126,9 @@ No LiDAR, no depth camera. Use monocular estimation:
 ```
 estimated_distance_m = (known_object_height_m * focal_length_px) / bounding_box_height_px
 ```
-Reference heights (meters): `car=1.5`, `person=1.7`, `bicycle=1.1`, `truck=3.5`
-Focal length: calibrate once using a known object at a known distance (e.g. a 1.7m person at 3m).
+Reference heights (meters) used in the Visual implementation: `person=1.7`, `car=1.5`, `bicycle=1.1`, `motorcycle=1.3`, `truck=3.5`, `bus=3.2`
+
+Focal length: calibrate once using a known object at a known distance (e.g. a 1.7m person at 3m), then set **`focal_length_px`** to match. Default in code: **850** (override via CLI; see **§4.1**).
 
 For horizontal position, normalize the bounding box center X to `[-1.0, 1.0]`:
 ```
@@ -124,7 +136,7 @@ pan_value = (bbox_center_x / frame_width - 0.5) * 2.0
 ```
 
 **T1.3 — JSON Output Format (THE CONTRACT)**
-Emit a JSON array at 15Hz (every 66ms). Format defined in Section 4.
+Emit a **JSON object** (not an array) at **~15 Hz** (~66 ms). Same schema in **Section 4**; one top-level `objects` array.
 
 **T1.4 — Performance Gate**
 Vision processing must complete in < 50ms per frame on iPhone 12 or newer. Profile with `time.perf_counter()`. If > 50ms, drop to 10fps or reduce input resolution to 480p.
@@ -184,11 +196,21 @@ Audio engine update loop must complete in < 30ms per tick. Do NOT run on the mai
 #### Tasks:
 
 **T3.1 — Thread Management / Bridge Architecture**
-The Vision Engine (Python) and Audio Engine (Swift) are two separate processes. Bridge them via:
-- **Option A (Preferred):** Local HTTP server. Python runs a lightweight Flask server on `localhost:8765`. Swift polls or subscribes via `URLSession` at 15Hz.
-- **Option B:** Unix socket IPC for sub-millisecond handoff (more complex, use only if Option A latency is insufficient).
+The on-device app uses **Swift**; for integration and dev, a **Python** process can expose the same contract.
 
-Handoff budget: < 10ms. Measure with timestamps in JSON payload (see Section 4).
+**Option A (Implemented in this repo, dev + integration with iOS):** **Flask** (not FastAPI) on **port `8765`**, same default as the PRD.
+- **`GET /health`** — process up, `frame_id`, moving averages, `inference_source`, etc.
+- **`GET /frame`** — latest full payload (for polling at ~15 Hz or for the judge JSON panel).
+- **`POST /infer`** — iPhone (or any client) sends a **JPEG** (raw `image/jpeg` body, or `multipart/form-data` field **`image`**). Returns the **same JSON** as `GET /frame` and **updates** the latest snapshot (so `GET /frame` and Audio stay aligned).
+- **`OPTIONS` + CORS** — `Access-Control-Allow-Origin: *` for a browser-based judge UI if needed.
+- **LAN (iPhone → Mac for hackathon build):** run the server with **`--host 0.0.0.0`**; iOS base URL is `http://<mac-lan-ip>:8765`. iOS may require **App Transport Security** exceptions for local HTTP. Use **`--no-local-camera`** when the **only** image source is the iPhone (no OpenCV Mac webcam).
+- **Local Mac/PC only (no iPhone):** run without `--no-local-camera` to use a laptop webcam; **`GET /frame`** auto-refreshes at the target rate.
+
+**Option B:** Unix socket IPC (not implemented here).
+
+**Production iOS (no Mac in the path):** **AVFoundation** capture + **on-device** **CoreML** YOLOv8n, outputting the **identical in-memory or in-process** struct as this JSON. **No HTTP** between vision and audio in the ideal path.
+
+Handoff budget: < 10ms where a bridge exists. Use **`timestamp_ms`** and **`vision_duration_ms`** in the payload to measure.
 
 **T3.2 — Lanyard Mode UI**
 This is what the user sees (barely):
@@ -227,11 +249,12 @@ This is what the judges see. Shake the phone twice to activate:
 
 > **If you miss 100ms, a person can walk into traffic before the alert fires. This is not a performance metric. It is a safety requirement.**
 
-### Edge Processing: Local-Only
+### Edge Processing: Local-Only (production path)
 
-- Zero cloud calls during operation. All ML inference runs on-device.
-- Model: `yolov8n` (CoreML exported `.mlpackage` for iOS, ONNX for Android/desktop).
-- Explicitly compatible with **GT Edge AI sponsor requirements**. Mention "100% on-device inference, zero network dependency" in your pitch.
+- **User-facing / pitch path:** **Zero cloud** during live assist. **All ML inference on the iPhone** (CoreML `yolov8n` or equivalent on-device). **No network required** to interpret the world or drive spatial audio in that mode.
+- **Exception (development only):** the **Python Flask bridge** may run on a **Mac** and accept **LAN `POST /infer`** from the phone for faster team integration. That path **is not** the sponsor “edge-only” story until inference moves fully on-device (see **§4.1**).
+- Model: `yolov8n` — **CoreML** `.mlpackage` (iOS), optional ONNX for tooling.
+- Explicitly compatible with **GT Edge AI sponsor requirements** when the **iOS on-device** path is what you demo: say **"100% on-device inference, zero network dependency"** for that configuration.
 - Battery optimization: process every other frame at idle walking speed, every frame in high-motion environments (use accelerometer delta to gate processing rate).
 
 ### The JSON Contract — Exact Schema
@@ -241,6 +264,11 @@ This is what the judges see. Shake the phone twice to activate:
   "frame_id": 1042,
   "timestamp_ms": 1714052800123,
   "vision_duration_ms": 34,
+  "camera": {
+    "lens_status": "ok",
+    "lens_laplacian_var": 235.4,
+    "lens_announce": null
+  },
   "objects": [
     {
       "object_id": "car_001",
@@ -265,8 +293,90 @@ This is what the judges see. Shake the phone twice to activate:
 - `object_id` — Persistent across frames for the same tracked object. Format: `{class}_{3-digit-counter}`.
 - `pan_value` — Range `[-1.0, 1.0]`. `-1.0` = hard left, `1.0` = hard right.
 - `priority` — `"HIGH"` if `distance_m < 3.0`, else `"NORMAL"`.
-- `velocity_mps` — Optional. `null` if object tracking is not implemented. Set to `0.0` as default.
+- `velocity_mps` — **Implemented** in both the **Python** visual service and **`BlindGuyKit` (iOS)** as a scalar (meters per second, estimated from distance change between frames on a stable `object_id`). If tracking is disabled in a future build, use `0.0`; the field stays in the contract for Audio.
+- `camera` — **Optional** in transport when lens checks are off; when present: `lens_status` (`ok` | `warning`), `lens_laplacian_var` (sharpness proxy), `lens_announce` (string for TTS when `warning`, else `null`). Used to warn when the **lens may be smudged** (low multi-frame sharpness / Laplacian variance).
 - All `_norm` bbox values are normalized `[0.0, 1.0]` relative to frame dimensions.
+
+---
+
+## 4.1 Visual branch — implementation specifics (this repository, iPhone-focused)
+
+This section records what the **`Visual` branch code** does today so **UI/UX**, **Audio**, and **judge tooling** share one truth. **Runtime target for the product is still the iPhone on iOS**; the Python service is the **reference implementation** and **integration bridge** until CoreML runs the same model on-device.
+
+| Topic | Specific |
+|--------|-----------|
+| **Platform (user)** | **iOS** app on **iPhone**; camera forward; AirPods Pro for spatial output. |
+| **Vision model** | **YOLOv8n** via **Ultralytics**; weights file **`yolov8n.pt`** (downloaded on first run by the library). |
+| **Classes emitted** | `person`, `car`, `bicycle`, `motorcycle`, `truck`, `bus` only; all other COCO classes discarded. |
+| **Confidence** | Detections below **0.55** are suppressed at inference (`conf` threshold). |
+| **Distance** | `estimated_distance_m = (known_object_height_m * focal_length_px) / bbox_height_px` using reference heights in **T1.2**; **default `focal_length_px` = 850** (re-calibrate per camera with `visual_engine.calibration` + `--focal-length-px` on the server). |
+| **Pan** | `pan_value = (bbox_center_x / frame_width - 0.5) * 2.0`, clamped to **[-1, 1]**. |
+| **Tracking** | **Persistent `object_id`** per class with simple bbox association; **velocity_mps** from inter-frame distance delta / dt. |
+| **Rate** | Target **15 Hz** emit for local webcam loop; if rolling average **vision** time **> 50 ms**, effective output rate **falls back to 10 Hz**. iOS-POST mode: client should send **~10–15 JPEG/s** to match. |
+| **Input resolution (webcam default)** | **640×480** OpenCV pull (device-dependent). iPhone JPEGs use native capture size; same math on pixel bbox height. |
+| **Server** | **Flask**; default bind **`127.0.0.1:8765`**; use **`0.0.0.0`** for LAN. |
+| **HTTP API** | `GET /health`, `GET /frame`, `POST /infer` (JPEG), CORS for dashboards. |
+| **Docs in repo** | `docs/visual-integration.md` (team handoff), `docs/contract.example.json` (example payload), **`docs/VISION_BRANCH_LOG.md`** (append-only **Visual branch** engineering log). |
+| **Dependencies** | `flask`, `ultralytics`, `opencv-python`, `numpy` (see `requirements.txt`). |
+| **iOS on-device (Swift / SwiftUI)** | Swift package **`ios/BlindGuyKit`**: **CoreML** + **Vision** (`VNCoreMLRequest`), **YOLOv8n** exported with **NMS** (`scripts/export_coreml.py`), **`FramePayload`** / **`DetectedObjectDTO`** `Codable` types matching Section 4, **`OnDeviceVisionEngine`** (serial queue, **~15 Hz** emit cap, **drop** if inference still running, `VNImageOption.preferBackgroundProcessing`), **`BlindGuySession`** (`ObservableObject`, `@Published lastPayload`) for SwiftUI. **Lens / smudge:** `LensQualityAnalyzer` + **`LensWarningAnnouncer`** (iOS, `AVSpeechSynthesizer`, cooldown). Integrate: add local package in Xcode, bundle **`yolov8n.mlpackage`** in the **app** target, `AVCaptureVideoDataOutput` → `CVPixelBuffer` → `session.ingest(...)`. See **`ios/README.md`**. |
+| **Tests** | **Pytest** (`tests/`, `pytest.ini`); **`python -m visual_engine.testing_engine`** in-process smokes; `validate_frame_payload` for schema. |
+| **Smudge / dirty lens (Python + iOS)** | Laplacian variance on a downscaled grayscale frame; if below **`lens_laplacian_threshold` for N consecutive** frames, set `lens_status: warning` and a **`lens_announce`** string. Tuned via `VisualConfig` / `VisionConfiguration`. |
+
+**Pitch wording (edge AI):** For sponsor and safety messaging, the **product** is **100% on-device inference** in production. **Mac + Wi-Fi + `POST /infer`** is a **non-shipping integration path** for the hackathon; do not claim “zero network” if that path is what you demo without moving inference onto the phone.
+
+---
+
+## 4.2 As-built repository map (maintain with code)
+
+This section is the **living index** of what exists in the repo today. Update it when you add files, change entrypoints, or change the contract.
+
+### Python — `src/visual_engine/`
+
+| Module | Purpose |
+|--------|---------|
+| `config.py` | `VisualConfig`: YOLO path, class set, `confidence_threshold`, height table, `focal_length_px`, **lens** toggles and thresholds, emit/rate and tracking knobs. |
+| `contracts.py` | `DetectedObject`, `BBoxNorm`, `make_frame_payload` (optional **`camera`** block). |
+| `vision_engine.py` | YOLO inference, pan/distance, `VisionResult`. |
+| `tracker.py` | `object_id` + `velocity_mps` + `priority`. |
+| `lens_quality.py` | Laplacian sharpness, **`LensWarningState`** (consecutive low-variance → warning). |
+| `app.py` | **Flask** `VisionService`, `GET /health`, `GET /frame`, `POST /infer`, CORS; optional local webcam; merges detections + lens into one payload. |
+| `main.py` | CLI: `--host`, `--port`, `--camera-index`, `--confidence`, `--focal-length-px`, `--emit-hz`, **`--no-local-camera`**. |
+| `calibration.py` | CLI: compute **`focal_length_px`** from measured height/distance and bbox height samples. |
+| `testing_engine.py` | **Testing engine:** `validate_frame_payload`, `run_built_in_smoke` / `TestReport`; no pytest required. Run: `PYTHONPATH=src python -m visual_engine.testing_engine`. |
+
+**Tests:** `tests/` (pytest), `pytest.ini` (`pythonpath = src`). Run: `pytest -q` after `pip install -r requirements.txt`.
+
+**Top-level `requirements.txt`:** `flask`, `numpy`, `opencv-python`, `ultralytics`, `pytest` (and transitive deps).
+
+**Root `README.md`:** venv, run server (laptop cam vs iPhone → Mac), calibration, iOS package pointer, **testing** section (pytest + testing engine).
+
+### iOS — `ios/BlindGuyKit/` (Swift package)
+
+| Area | Purpose |
+|------|---------|
+| `Package.swift` | iOS 16+ (and macOS 13+ for `swift build` of the library on a dev machine). |
+| `ContractModels.swift` | `FramePayload`, `DetectedObjectDTO`, **`CameraHealthDTO`**, `BBoxNorm` (snake_case JSON). |
+| `VisionConfiguration.swift` | Mirrors Python tuning: classes, conf, heights, focal, **lens** fields, 15Hz-style `minEmitInterval`. |
+| `COCOMapping.swift` | COCO index / name for Vision labels. |
+| `CoreMLDetector.swift` | Load `yolov8n` from bundle, `VNCoreMLRequest`, `VNRecognizedObjectObservation` → `RawDetection`. |
+| `ObjectTracker.swift` | Same ID/velocity/priority story as Python. |
+| `VisionGeometry.swift` | Vision bbox → PRD pan/distance. |
+| `OnDeviceVisionEngine.swift` | CoreML+Vision + tracker + **lens** on each emitted frame; backpressure and rate cap. |
+| `BlindGuySession.swift` | SwiftUI `ObservableObject`, **`enableLensSpeech`** and **`lensAnnouncer`**. |
+| `LensQualityAnalyzer.swift` | Laplacian on downscaled BGRA path; `LensStreakState`. |
+| `LensWarningAnnouncer.swift` (iOS) | **`AVSpeechSynthesizer`**, debounced, for `lens_announce`. |
+
+**`ios/README.md`:** add package to Xcode, **export CoreML** (`scripts/export_coreml.py`), camera wiring, **lens** + TTS, performance notes, testing note (Xcode vs CLI).
+
+**`scripts/export_coreml.py`:** Ultralytics `yolov8n` → CoreML with **NMS** for Vision.
+
+### Implementation changelog (high level)
+
+| Version / note | What landed |
+|----------------|-------------|
+| **PRD 1.0** | Original competition draft (concept, branches, JSON contract). |
+| **PRD 1.1** | iPhone ship target, Flask bridge details, §4.1 Visual table, CoreML / Swift path described. |
+| **PRD 1.2 (this)** | **`camera` / lens-smudge** in schema and both stacks; **pytest** + **`testing_engine`**; **PRD + docs** process above; `ios/BlindGuyKit` file map; as-built **§4.2**. |
 
 ---
 
