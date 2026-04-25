@@ -57,3 +57,16 @@ A reference plist fragment is in **`ios/BlindGuyRuntime/Info.plist.example`** (c
 - **Lab + Python only:** `PYTHONPATH=src python -m visual_engine.main --host 0.0.0.0 --port 8765` on the Mac; on the phone set **Settings → Development → bridge URL** to `http://<mac-lan-ip>:8765`.
 
 Server exposes **`/frame`**, **`/payload`** (alias), **`/health`**, **`/infer`**, **`/judge`**.
+## 8. Visual Identity (App Icon & Splash)
+
+To ensure the app feels like a premium product for the judges:
+
+### App Icon
+1. Open **Assets.xcassets** -> **AppIcon**.
+2. Drag the **blindguy_app_icon** into the 1024px universal slot.
+3. In the Attributes Inspector, set **Devices** to "Single Size" for quick setup.
+
+### Launch Screen
+1. Drag **blindguy_splash_logo** into **Assets.xcassets** and name it `LaunchLogo`.
+2. In the app target **Info** tab, add a **Launch Screen** dictionary.
+3. Inside it, add **Image Name** = `LaunchLogo` and **Background Color** = `Black`.
