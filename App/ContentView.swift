@@ -69,20 +69,38 @@ struct ContentView: View {
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingSettings = true
-                    } label: {
-                        Image(systemName: "gearshape.fill")
-                            .font(.body.weight(.semibold))
-                            .symbolRenderingMode(.hierarchical)
-                            .frame(width: 40, height: 40)
-                            .background {
-                                Circle()
-                                    .fill(Color.white.opacity(0.06))
+                    HStack(spacing: 4) {
+                        if app.modelAvailable, let session = app.session {
+                            NavigationLink {
+                                DetectionDebugView(session: session)
+                            } label: {
+                                Image(systemName: "list.bullet.rectangle")
+                                    .font(.body.weight(.semibold))
+                                    .symbolRenderingMode(.hierarchical)
+                                    .frame(width: 40, height: 40)
+                                    .background {
+                                        Circle()
+                                            .fill(Color.white.opacity(0.06))
+                                    }
                             }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Detection debug")
+                        }
+                        Button {
+                            showingSettings = true
+                        } label: {
+                            Image(systemName: "gearshape.fill")
+                                .font(.body.weight(.semibold))
+                                .symbolRenderingMode(.hierarchical)
+                                .frame(width: 40, height: 40)
+                                .background {
+                                    Circle()
+                                        .fill(Color.white.opacity(0.06))
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Settings")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Settings")
                 }
             }
         }

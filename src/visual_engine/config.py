@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 @dataclass(slots=True)
 class VisualConfig:
     model_path: str = "yolov8n.pt"
-    confidence_threshold: float = 0.55
+    confidence_threshold: float = 0.62
     target_classes: set[str] = field(
         default_factory=lambda: {"person", "car", "bicycle", "motorcycle", "truck", "bus"}
     )
@@ -26,11 +26,9 @@ class VisualConfig:
     max_detection_ms: float = 50.0
     max_tracking_gap_s: float = 1.0
     max_match_distance_norm: float = 0.20
-    enable_lens_check: bool = True
+    enable_lens_check: bool = False
     lens_laplacian_max_side: int = 400
     lens_laplacian_threshold: float = 100.0
     lens_warn_consecutive: int = 4
-    lens_announcement_text: str = (
-        "Camera lens may be smudged or dirty. Clean the lens for more reliable detection."
-    )
+    lens_announcement_text: str = ""
 

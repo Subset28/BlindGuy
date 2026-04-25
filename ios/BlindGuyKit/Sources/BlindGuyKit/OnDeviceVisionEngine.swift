@@ -114,11 +114,14 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
                     )
                 )
             }
-            let lap = LensQualityAnalyzer.laplacianVariance(
-                pixelBuffer: captured,
-                maxSide: self.config.lensCheckMaxSide
-            )
-            let cam = self.lensState.update(lapVar: lap, config: self.config)
+            let cam: CameraHealthDTO? = {
+                guard self.config.enableLensCheck else { return nil }
+                let lap = LensQualityAnalyzer.laplacianVariance(
+                    pixelBuffer: captured,
+                    maxSide: self.config.lensCheckMaxSide
+                )
+                return self.lensState.update(lapVar: lap, config: self.config)
+            }()
             let payload = FramePayload(
                 frameId: fid,
                 timestampMs: Int64(Date().timeIntervalSince1970 * 1000),

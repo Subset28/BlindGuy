@@ -94,6 +94,7 @@ def _smoke_lens() -> None:
         )
     thr = (vs + vb) / 2.0
     cfg = VisualConfig(
+        enable_lens_check=True,
         lens_laplacian_threshold=thr,
         lens_warn_consecutive=2,
     )

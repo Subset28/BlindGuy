@@ -4,7 +4,10 @@ import Foundation
 import BlindGuyKit
 
 /// Consumes **`FramePayload`** from on-device **`BlindGuySession`** or **GET `/frame`** on the bridge.
-/// Object **names** are spoken with `AVSpeechSynthesizer` (system TTS), with throttling per track. No beeps.
+/// Object **names** are spoken with `AVSpeechSynthesizer` (system TTS). Vision already estimates depth with a pinhole
+/// / similar-triangles model (`known height × focal ÷ bbox height` in `BlindGuyKit`). Here we **rank** detections by
+/// closeness + class (similar in spirit to threat ordering in [OmniSight](https://github.com/Subset28/OmniSight)), speak **at
+/// most once per frame**, and dedupe by track id *and* coarse position so unstable IDs do not cause “person…person…person.”
 final class HearingEngine: ObservableObject {
     @Published private(set) var objectCount: Int = 0
     @Published private(set) var alertActive: Bool = false
@@ -14,9 +17,15 @@ final class HearingEngine: ObservableObject {
     @Published private(set) var isSpatialHeadphoneRouteActive: Bool = false
 
     private let speechSynth = AVSpeechSynthesizer()
-    private var lastSpokenByObject: [String: Date] = [:]
-    /// Per-object cooldown so the list doesn’t spam every frame.
-    private let nameSpeakCooldownSeconds: TimeInterval = 2.2
+    private var lastSpokenByObjectId: [String: Date] = [:]
+    private var lastSpokenBySpatialKey: [String: Date] = [:]
+    private var lastSpeechAt: Date?
+    /// Same physical object should not re-announce every frame; also enforced via spatial grid when `object_id` jitters.
+    private let cooldownSameTrackSeconds: TimeInterval = 6.0
+    private let cooldownSameSpatialCellSeconds: TimeInterval = 5.0
+    /// Prevents TTS from queueing dozens of lines in one runloop tick.
+    private let minIntervalAnySpeechSeconds: TimeInterval = 0.55
+    private let maxNameAnnouncementsPerFrame: Int = 1
 
     private let workQueue = DispatchQueue(label: "com.blindguy.hearing.work", qos: .userInitiated)
     private var lastFrame: FramePayload?
@@ -26,6 +35,11 @@ final class HearingEngine: ObservableObject {
     private var cancellable: AnyCancellable?
     private weak var vision: BlindGuySession?
     private var isRunning: Bool = false
+    /// On-device: only true while the camera is running (`!modelAvailable` bridge mode stays on). Synchronized.
+    private let speechGateLock = NSLock()
+    private var allowsFrameSpeech: Bool = false
+    /// Keeps TTS in line with the vision filter; bridge JSON may be unfiltered, so this still helps.
+    private static let minConfidenceForSpeech: Double = 0.62
 
     private static let bridgeURLKey = "blindguy.visionBridgeBaseURLString"
 
@@ -55,6 +69,26 @@ final class HearingEngine: ObservableObject {
         refreshHeadphoneStateForUI()
     }
 
+    /// Stops TTS and gates speech. Call with `!modelAvailable || isScanning` for on-device (bridge-only keeps speech on).
+    /// Updates the gate **synchronously** so no frame is spoken before this returns.
+    func setVisionSpeechEnabled(_ enabled: Bool) {
+        speechGateLock.lock()
+        allowsFrameSpeech = enabled
+        speechGateLock.unlock()
+        if !enabled {
+            workQueue.async { [weak self] in
+                self?.lastSpokenByObjectId.removeAll()
+                self?.lastSpokenBySpatialKey.removeAll()
+            }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.objectCount = 0
+                self.alertActive = false
+                self.speechSynth.stopSpeaking(at: .immediate)
+            }
+        }
+    }
+
     init() {}
 
     func start(vision: BlindGuySession?) {
@@ -75,6 +109,7 @@ final class HearingEngine: ObservableObject {
         DispatchQueue.main.async { [weak self] in
             self?.pollTimer?.invalidate()
             self?.pollTimer = nil
+            self?.speechSynth.stopSpeaking(at: .immediate)
         }
         cancellable = nil
     }
@@ -183,16 +218,33 @@ final class HearingEngine: ObservableObject {
     }
 
     private func handleFrame(_ frame: FramePayload) {
+        speechGateLock.lock()
+        let allow = allowsFrameSpeech
+        speechGateLock.unlock()
+        guard allow else { return }
+
         let announceEach = BlindGuyFeatureFlags.hearingTones
         let includeDistance = BlindGuyFeatureFlags.hearingTTS
+        pruneStaleSpeechHistory(now: Date())
+
+        let pool = frame.objects
+            .filter { $0.confidence >= Self.minConfidenceForSpeech }
+            .sorted { Self.interestScore($0) > Self.interestScore($1) }
 
         if announceEach {
-            for obj in frame.objects {
-                speakObjectNameIfAllowed(obj: obj, includeDistance: includeDistance)
+            var n = 0
+            for obj in pool {
+                if n >= maxNameAnnouncementsPerFrame { break }
+                if trySpeakObjectNameIfAllowed(obj: obj, includeDistance: includeDistance) {
+                    n += 1
+                }
             }
         } else {
-            for obj in frame.objects where obj.priority.uppercased() == "HIGH" {
-                speakPriorityObjectIfAllowed(obj: obj)
+            var n = 0
+            let high = pool.filter { $0.priority.uppercased() == "HIGH" }
+            for obj in high {
+                if n >= maxNameAnnouncementsPerFrame { break }
+                if trySpeakPriorityObjectIfAllowed(obj: obj) { n += 1 }
             }
         }
 
@@ -206,11 +258,10 @@ final class HearingEngine: ObservableObject {
         }
     }
 
-    /// Spoken when “announce each object” is on: **class** name, optional **distance** if TTS is on.
-    private func speakObjectNameIfAllowed(obj: DetectedObjectDTO, includeDistance: Bool) {
+    /// **Class** + optional **distance**; returns `true` if a line was queued.
+    private func trySpeakObjectNameIfAllowed(obj: DetectedObjectDTO, includeDistance: Bool) -> Bool {
         let now = Date()
-        if let last = lastSpokenByObject[obj.objectId], now.timeIntervalSince(last) < nameSpeakCooldownSeconds { return }
-        lastSpokenByObject[obj.objectId] = now
+        if !passesGlobalAndDedupeGates(obj: obj, now: now, useSpatialGrid: true) { return false }
         let name = Self.humanizeClassName(obj.objectClass)
         let phrase: String
         if includeDistance {
@@ -219,22 +270,78 @@ final class HearingEngine: ObservableObject {
         } else {
             phrase = name
         }
-        enqueueSpeech(phrase)
+        markSpoken(obj: obj, now: now)
+        enqueueSpeech(phrase, at: now)
+        return true
     }
 
-    /// When “announce each object” is off: only **high-priority** lines with distance (needs distance TTS on).
-    private func speakPriorityObjectIfAllowed(obj: DetectedObjectDTO) {
-        if !BlindGuyFeatureFlags.hearingTTS { return }
+    /// **High-priority** only, distance in phrase (requires distance TTS on).
+    private func trySpeakPriorityObjectIfAllowed(obj: DetectedObjectDTO) -> Bool {
+        if !BlindGuyFeatureFlags.hearingTTS { return false }
         let now = Date()
-        if let last = lastSpokenByObject["prio:\(obj.objectId)"], now.timeIntervalSince(last) < nameSpeakCooldownSeconds { return }
-        lastSpokenByObject["prio:\(obj.objectId)"] = now
+        if !passesGlobalAndDedupeGates(obj: obj, now: now, useSpatialGrid: true) { return false }
         let m = Int(round(obj.distanceM))
         let name = Self.humanizeClassName(obj.objectClass)
         let phrase = "\(name), \(m) meters away"
-        enqueueSpeech(phrase)
+        markSpoken(obj: obj, now: now)
+        enqueueSpeech(phrase, at: now)
+        return true
     }
 
-    private func enqueueSpeech(_ phrase: String) {
+    private func passesGlobalAndDedupeGates(
+        obj: DetectedObjectDTO,
+        now: Date,
+        useSpatialGrid: Bool
+    ) -> Bool {
+        if let t = lastSpeechAt, now.timeIntervalSince(t) < minIntervalAnySpeechSeconds { return false }
+        if let last = lastSpokenByObjectId[obj.objectId], now.timeIntervalSince(last) < cooldownSameTrackSeconds {
+            return false
+        }
+        if useSpatialGrid {
+            let k = Self.spatialDedupeKey(obj: obj)
+            if let last = lastSpokenBySpatialKey[k], now.timeIntervalSince(last) < cooldownSameSpatialCellSeconds {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func markSpoken(obj: DetectedObjectDTO, now: Date) {
+        lastSpokenByObjectId[obj.objectId] = now
+        lastSpokenBySpatialKey[Self.spatialDedupeKey(obj: obj)] = now
+    }
+
+    private static func spatialDedupeKey(obj: DetectedObjectDTO) -> String {
+        let c = obj.objectClass.lowercased()
+        let x = Int((obj.bbox.xCenterNorm * 15.0).rounded())
+        let y = Int((obj.bbox.yCenterNorm * 15.0).rounded())
+        return "\(c)|\(x)|\(y)"
+    }
+
+    /// Closer, heavier classes, and `HIGH` priority win (same idea as OmniSight `get_threat` ordering).
+    private static func interestScore(_ o: DetectedObjectDTO) -> Double {
+        let d = max(0.1, o.distanceM)
+        let pri = o.priority.uppercased() == "HIGH" ? 1.5 : 1.0
+        let w = classImportance(o.objectClass)
+        return w * pri * (1.0 / d) * (0.55 + 0.45 * min(1.0, o.confidence))
+    }
+
+    private static func classImportance(_ raw: String) -> Double {
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if t == "truck" || t == "bus" || t == "car" { return 3.0 }
+        if t == "person" { return 1.5 }
+        if t == "bicycle" || t == "motorcycle" { return 1.2 }
+        return 1.0
+    }
+
+    private func pruneStaleSpeechHistory(now: Date) {
+        let cap: TimeInterval = 45
+        lastSpokenByObjectId = lastSpokenByObjectId.filter { now.timeIntervalSince($0.value) < cap }
+        lastSpokenBySpatialKey = lastSpokenBySpatialKey.filter { now.timeIntervalSince($0.value) < cap }
+    }
+
+    private func enqueueSpeech(_ phrase: String, at now: Date) {
+        lastSpeechAt = now
         DispatchQueue.main.async { [weak self] in
             let u = AVSpeechUtterance(string: phrase)
             u.voice = AVSpeechSynthesisVoice(language: "en-US")

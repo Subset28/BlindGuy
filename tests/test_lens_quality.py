@@ -19,7 +19,11 @@ def test_lens_warning_after_consecutive_blur() -> None:
     vs = laplacian_variance_bgr(sharp)
     vb = laplacian_variance_bgr(blur)
     thr = (vs + vb) / 2.0
-    cfg = VisualConfig(lens_laplacian_threshold=thr, lens_warn_consecutive=3)
+    cfg = VisualConfig(
+        enable_lens_check=True,
+        lens_laplacian_threshold=thr,
+        lens_warn_consecutive=3,
+    )
     st = LensWarningState(cfg)
     assert st.update(blur)["lens_status"] == "ok"
     assert st.update(blur)["lens_status"] == "ok"

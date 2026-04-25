@@ -19,7 +19,8 @@ final class ObjectTracker {
 
     init(
         maxGapSeconds: TimeInterval = 1.0,
-        maxMatchDistanceNorm: Double = 0.20,
+        /// Slightly loose so one person doesn’t get a new `object_id` every few frames (reduces TTS repeat labels).
+        maxMatchDistanceNorm: Double = 0.24,
         highPriorityDistanceM: Double = 3.0
     ) {
         self.maxGap = maxGapSeconds

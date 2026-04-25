@@ -1,4 +1,4 @@
-# Contributing to BlindGuy
+t# Contributing to BlindGuy
 
 ## Branching (trunk-based development)
 

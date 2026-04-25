@@ -13,7 +13,7 @@ public final class BlindGuySession: ObservableObject {
 
     public init(
         engine: OnDeviceVisionEngine,
-        enableLensSpeech: Bool = true
+        enableLensSpeech: Bool = false
     ) {
         self.engine = engine
         #if os(iOS)

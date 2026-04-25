@@ -15,7 +15,7 @@ public struct VisionConfiguration: Sendable {
     public var lensAnnouncementText: String
 
     public static let `default` = VisionConfiguration(
-        confidenceThreshold: 0.55,
+        confidenceThreshold: 0.62,
         targetClassNames: [
             "person", "car", "bicycle", "motorcycle", "truck", "bus",
         ],
@@ -30,12 +30,11 @@ public struct VisionConfiguration: Sendable {
         focalLengthPixels: 850,
         minEmitInterval: 1.0 / 15.0,
         highPriorityDistanceM: 3.0,
-        enableLensCheck: true,
+        enableLensCheck: false,
         lensLaplacianThreshold: 100,
         lensWarnConsecutive: 4,
         lensCheckMaxSide: 400,
-        lensAnnouncementText:
-            "Camera lens may be smudged or dirty. Clean the lens for more reliable detection."
+        lensAnnouncementText: ""
     )
 
     public init(
@@ -45,12 +44,11 @@ public struct VisionConfiguration: Sendable {
         focalLengthPixels: Double,
         minEmitInterval: TimeInterval,
         highPriorityDistanceM: Double,
-        enableLensCheck: Bool = true,
+        enableLensCheck: Bool = false,
         lensLaplacianThreshold: Double = 100,
         lensWarnConsecutive: Int = 4,
         lensCheckMaxSide: Int = 400,
-        lensAnnouncementText: String =
-            "Camera lens may be smudged or dirty. Clean the lens for more reliable detection."
+        lensAnnouncementText: String = ""
     ) {
         self.confidenceThreshold = confidenceThreshold
         self.targetClassNames = targetClassNames

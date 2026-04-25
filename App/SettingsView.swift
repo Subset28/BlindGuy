@@ -9,7 +9,6 @@ struct SettingsView: View {
     @AppStorage(BlindGuyFeatureKey.hearingTTS) private var hearingTTS: Bool = true
     @AppStorage(BlindGuyFeatureKey.haptics) private var haptics: Bool = true
     @AppStorage(BlindGuyFeatureKey.payloadHUD) private var payloadHUD: Bool = true
-    @AppStorage(BlindGuyFeatureKey.lensTTS) private var lensTTS: Bool = true
     @AppStorage("blindguy.visionBridgeBaseURLString") private var bridgeURLString: String = "http://127.0.0.1:8765"
     @State private var showOptionalComputer: Bool = false
 
@@ -47,14 +46,6 @@ struct SettingsView: View {
                     }
 
                     Section {
-                        Toggle(isOn: $lensTTS) { Label("Lens smudge voice hint", systemImage: "exclamationmark.triangle") }
-                    } header: {
-                        sectionHeader("Camera", icon: "camera")
-                    } footer: {
-                        Text("Gentle reminder if the glass may be dirty.")
-                    }
-
-                    Section {
                         DisclosureGroup(isExpanded: $showOptionalComputer) {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("For developer or lab use only. Enter an address only if your team set one up.")
@@ -86,6 +77,28 @@ struct SettingsView: View {
                         sectionHeader("Advanced", icon: "hammer")
                     } footer: {
                         Text("BlindGuy runs on this iPhone. No second device is required in normal use.")
+                    }
+
+                    Section {
+                        if let session = app.session {
+                            NavigationLink {
+                                DetectionDebugView(session: session)
+                            } label: {
+                                Label("Raw detections (debug)", systemImage: "list.bullet.rectangle")
+                            }
+                        } else {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Label("Raw detections (debug)", systemImage: "list.bullet.rectangle")
+                                Text("Not available until the on-device YOLO model is bundled in Xcode.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    } header: {
+                        sectionHeader("Debug", icon: "ladybug")
+                    } footer: {
+                        Text("Live text of every object in the last vision frame. Requires the on-device YOLO model in the app.")
+                            .font(.caption)
                     }
 
                     Section {
