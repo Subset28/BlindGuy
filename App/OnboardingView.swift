@@ -3,130 +3,142 @@ import SwiftUI
 struct OnboardingView: View {
     @Binding var shouldShowOnboarding: Bool
     @State private var currentPage = 0
-    
-    let pages: [OnboardingPage] = [
+
+    private let pages: [OnboardingPage] = [
         OnboardingPage(
-            title: "Welcome to BlindGuy",
-            description: "Your second pair of eyes. We clone the physical world into a 3D auditory twin directly in your ears.",
-            icon: "eye.fill",
-            color: .green
+            title: "Hear your surroundings",
+            description: "Direction and distance become sound — built for moving through real space.",
+            icon: "ear.badge.waveform",
+            color: BlindGuyTheme.accent
         ),
         OnboardingPage(
-            title: "Spatial Radar",
-            description: "Feel the distance and direction of silent threats like EVs and cyclists through intuitive spatial sound.",
-            icon: "antenna.radiowaves.left.and.right",
-            color: .blue
+            title: "What’s around you",
+            description: "Objects in view are turned into spatial cues you can interpret without looking at the screen.",
+            icon: "viewfinder",
+            color: BlindGuyTheme.info
         ),
         OnboardingPage(
-            title: "Hardware Ready",
-            description: "For the best experience, wear your AirPods Pro. We use head-tracking to keep the soundscape stable as you move.",
-            icon: "airpodspro",
-            color: .purple
+            title: "Best with headphones",
+            description: "Stereo or spatial earphones give the clearest sense of left, right, and distance.",
+            icon: "headphones",
+            color: BlindGuyTheme.info
         ),
         OnboardingPage(
-            title: "Always On-Device",
-            description: "Zero cloud. Zero latency. Your privacy is absolute. Processing happens entirely on your Neural Engine.",
-            icon: "cpu",
-            color: .orange
+            title: "On this iPhone",
+            description: "Core processing runs on your device. You stay in control of when the camera is on.",
+            icon: "lock.shield",
+            color: BlindGuyTheme.accent
         ),
         OnboardingPage(
-            title: "Lanyard Setup",
-            description: "Wear your iPhone on a lanyard or chest mount. Our UI is designed for zero-touch interaction so you can focus on the path ahead.",
-            icon: "person.and.arrow.left.and.arrow.right",
-            color: .red
-        )
+            title: "You’re set",
+            description: "Keep the phone steady or on a lanyard. The main screen has one big control to start the camera when you need it.",
+            icon: "checkmark.circle",
+            color: BlindGuyTheme.accent
+        ),
     ]
-    
+
     var body: some View {
         ZStack {
-            Color.black.edgesIgnoringSafeArea(.all)
-            
-            // Background Glow
-            Circle()
-                .fill(pages[currentPage].color.opacity(0.1))
-                .frame(width: 400, height: 400)
-                .blur(radius: 80)
-                .offset(y: -100)
-                .animation(.easeInOut, value: currentPage)
-            
-            VStack {
+            BlindGuyTheme.background.ignoresSafeArea()
+            RadialGradient(
+                colors: [pages[safe: currentPage]?.color.opacity(0.2) ?? BlindGuyTheme.accent.opacity(0.15), .clear],
+                center: .top,
+                startRadius: 20,
+                endRadius: 400
+            )
+            .ignoresSafeArea()
+            .animation(.easeInOut(duration: 0.45), value: currentPage)
+
+            VStack(spacing: 0) {
                 TabView(selection: $currentPage) {
-                    ForEach(0..<pages.count, id: \.self) { index in
-                        OnboardingContent(page: pages[index])
-                            .tag(index)
+                    ForEach(0..<pages.count, id: \.self) { i in
+                        OnboardingContent(page: pages[i])
+                            .tag(i)
                     }
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
-                
-                // Custom Indicators
-                HStack(spacing: 8) {
-                    ForEach(0..<pages.count, id: \.self) { index in
+                .tabViewStyle(.page(indexDisplayMode: .never))
+
+                HStack(spacing: 6) {
+                    ForEach(0..<pages.count, id: \.self) { i in
                         Capsule()
-                            .fill(index == currentPage ? pages[currentPage].color : Color.white.opacity(0.2))
-                            .frame(width: index == currentPage ? 24 : 8, height: 8)
-                            .animation(.spring(), value: currentPage)
+                            .fill(i == currentPage ? pages[i].color : Color.white.opacity(0.2))
+                            .frame(width: i == currentPage ? 28 : 6, height: 6)
                     }
                 }
-                .padding(.bottom, 40)
-                
-                // Bottom Button
-                Button(action: {
+                .padding(.top, 8)
+                .padding(.bottom, 28)
+                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: currentPage)
+
+                Button {
                     if currentPage < pages.count - 1 {
-                        withAnimation { currentPage += 1 }
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.88)) { currentPage += 1 }
                     } else {
-                        withAnimation { shouldShowOnboarding = false }
+                        withAnimation(.easeOut(duration: 0.25)) { shouldShowOnboarding = false }
                     }
-                }) {
-                    Text(currentPage == pages.count - 1 ? "Get Started" : "Continue")
+                } label: {
+                    Text(currentPage == pages.count - 1 ? "Get started" : "Continue")
                         .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.black)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(currentPage == pages.count - 1 ? Color.black : Color.primary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 60)
-                        .background(pages[currentPage].color)
-                        .cornerRadius(16)
-                        .padding(.horizontal, 40)
+                        .padding(.vertical, 18)
+                        .background {
+                            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                                .fill(currentPage == pages.count - 1 ? AnyShapeStyle(BlindGuyTheme.accent) : AnyShapeStyle(Color.white.opacity(0.12)))
+                        }
                 }
-                .padding(.bottom, 50)
+                .padding(.horizontal, 28)
+                .padding(.bottom, 32)
             }
         }
     }
 }
 
-struct OnboardingPage {
+private struct OnboardingPage {
     let title: String
     let description: String
     let icon: String
     let color: Color
 }
 
-struct OnboardingContent: View {
+private struct OnboardingContent: View {
     let page: OnboardingPage
-    
+
     var body: some View {
-        VStack(spacing: 30) {
-            Image(systemName: page.icon)
-                .font(.system(size: 100))
-                .foregroundColor(page.color)
-                .shadow(color: page.color.opacity(0.3), radius: 20)
-                .padding(.top, 100)
-            
-            VStack(spacing: 16) {
+        VStack(spacing: 0) {
+            Spacer()
+            ZStack {
+                Circle()
+                    .fill(page.color.opacity(0.12))
+                    .frame(width: 140, height: 140)
+                Image(systemName: page.icon)
+                    .font(.system(size: 56, weight: .medium))
+                    .foregroundStyle(page.color)
+                    .symbolRenderingMode(.hierarchical)
+            }
+            .padding(.bottom, 36)
+            VStack(spacing: 14) {
                 Text(page.title)
-                    .font(.largeTitle.bold())
+                    .font(.title2.weight(.bold))
                     .multilineTextAlignment(.center)
-                
                 Text(page.description)
                     .font(.body)
-                    .foregroundColor(.secondary)
+                    .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+                    .lineSpacing(4)
+                    .padding(.horizontal, 32)
             }
             .accessibilityElement(children: .combine)
             .accessibilityLabel("\(page.title). \(page.description)")
-            
+            Spacer()
             Spacer()
         }
+    }
+}
+
+private extension Array {
+    subscript(safe i: Int) -> Element? {
+        (0..<count).contains(i) ? self[i] : nil
     }
 }
 

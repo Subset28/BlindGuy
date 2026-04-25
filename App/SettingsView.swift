@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(\.presentationMode) var presentationMode
+    @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var app: AppViewModel
 
     @AppStorage(BlindGuyFeatureKey.spatial3DBubble) private var spatial3DBubble: Bool = true
@@ -14,134 +14,122 @@ struct SettingsView: View {
     @State private var showOptionalComputer: Bool = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
-                Color.black.edgesIgnoringSafeArea(.all)
-
+                BlindGuyTheme.background.ignoresSafeArea()
                 List {
                     Section {
-                        Toggle("3D audio bubble (HRTF on headphones)", isOn: $spatial3DBubble)
-                            .tint(.green)
+                        Toggle(isOn: $spatial3DBubble) {
+                            Label("3D audio on headphones", systemImage: "headphones")
+                        }
                     } header: {
-                        Text("Spatial audio")
+                        sectionHeader("Spatial", icon: "wave.3d.right")
                     } footer: {
-                        Text("When on and you use AirPods, wired, or similar stereo, tones use a binaural stage. When off, stereo pan is used only.")
+                        Text("Binaural mix on earphones. When off, only left–right pan.")
                     }
 
                     Section {
-                        Toggle("Hearing tones (clones)", isOn: $hearingTones)
-                            .tint(.green)
-                        Toggle("Distance TTS (high-priority objects)", isOn: $hearingTTS)
-                            .tint(.green)
+                        Toggle(isOn: $hearingTones) { Label("Object tones", systemImage: "dot.radiowaves.up.forward") }
+                        Toggle(isOn: $hearingTTS) { Label("Spoken distance (priority)", systemImage: "text.bubble") }
                     } header: {
-                        Text("Hearing")
+                        sectionHeader("Hearing", icon: "ear")
                     } footer: {
-                        Text("Tones: looping audio per tracked object. TTS: spoken distance and class for high-priority items.")
+                        Text("Tones for tracks; TTS for high-priority objects.")
                     }
 
                     Section {
-                        Toggle("Haptics (scan, alerts)", isOn: $haptics)
-                            .tint(.green)
-                        Toggle("Payload HUD overlay", isOn: $payloadHUD)
-                            .tint(.green)
+                        Toggle(isOn: $haptics) { Label("Haptics", systemImage: "iphone.radiowaves.left.and.right") }
+                        Toggle(isOn: $payloadHUD) { Label("Show stats overlay", systemImage: "chart.bar") }
                     } header: {
-                        Text("Haptics & display")
+                        sectionHeader("Feedback", icon: "hand.tap")
                     } footer: {
-                        Text("Payload HUD is the on-screen object count and vision latency panel. Haptics also drive high-priority pulse when the HUD is shown.")
+                        Text("Haptics and optional on-screen count & timing.")
                     }
 
                     Section {
-                        Toggle("Lens smudge TTS", isOn: $lensTTS)
-                            .tint(.green)
+                        Toggle(isOn: $lensTTS) { Label("Lens smudge voice hint", systemImage: "exclamationmark.triangle") }
                     } header: {
-                        Text("Camera / vision")
+                        sectionHeader("Camera", icon: "camera")
                     } footer: {
-                        Text("When the lens looks dirty, a short TTS can remind you to clean the camera. Independent of object distance TTS.")
+                        Text("Gentle reminder if the glass may be dirty.")
                     }
 
                     Section {
                         DisclosureGroup(isExpanded: $showOptionalComputer) {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text(
-                                    "BlindGuy runs on this iPhone. A Mac or PC on the same Wi‑Fi is only for developer or lab setups — not everyday use. If your team gave you a web address to use, enter it here. Otherwise, leave this collapsed."
-                                )
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                TextField("http://10.0.0.1:8765", text: $bridgeURLString)
+                                Text("For developer or lab use only. Enter an address only if your team set one up.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                TextField("Address", text: $bridgeURLString)
                                     .textContentType(.URL)
                                     .autocorrectionDisabled()
+                                    .padding(10)
+                                    .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
                                     .onSubmit { applyBridgeURL() }
-                                Button("Save address") {
-                                    applyBridgeURL()
-                                }
-                                .tint(.green)
+                                Button("Save", action: applyBridgeURL)
+                                    .fontWeight(.semibold)
                             }
-                            .padding(.top, 4)
+                            .padding(.top, 6)
                         } label: {
                             Label {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Optional: lab computer on Wi‑Fi")
-                                    Text("Hidden unless you need it")
+                                    Text("Lab on Wi‑Fi (optional)")
+                                    Text("Developers only")
                                         .font(.caption2)
-                                        .foregroundColor(.secondary)
+                                        .foregroundStyle(.tertiary)
                                 }
                             } icon: {
-                                Image(systemName: "laptopcomputer.and.iphone")
+                                Image(systemName: "cable.connector")
                             }
                         }
                     } header: {
-                        Text("For developers")
+                        sectionHeader("Advanced", icon: "hammer")
                     } footer: {
-                        Text("Normal use: vision and audio on this device. No second machine required.")
+                        Text("BlindGuy runs on this iPhone. No second device is required in normal use.")
                     }
 
                     Section {
-                        Button(action: {
-                            if let url = URL(string: UIApplication.openSettingsURLString) {
-                                UIApplication.shared.open(url)
+                        Button {
+                            if let u = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(u)
                             }
-                        }) {
+                        } label: {
                             HStack {
-                                Text("System permissions")
+                                Label("iOS settings", systemImage: "gearshape")
                                 Spacer()
-                                Image(systemName: "arrow.up.forward.app")
-                                    .foregroundColor(.secondary)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.tertiary)
                             }
                         }
                     } header: {
-                        Text("Privacy")
-                    } footer: {
-                        Text("BlindGuy uses Camera and Motion for object detection and head tracking where enabled.")
+                        sectionHeader("System", icon: "app.badge")
                     }
 
                     Section {
                         HStack {
                             Text("Version")
                             Spacer()
-                            Text("1.0.0 (Academies Hacks)")
-                                .foregroundColor(.secondary)
+                            Text("1.0.0")
+                                .foregroundStyle(.tertiary)
                         }
                     } header: {
-                        Text("Information")
+                        sectionHeader("About", icon: "info.circle")
                     }
                 }
-                .listStyle(InsetGroupedListStyle())
-                .onAppear {
-                    UITableView.appearance().backgroundColor = .clear
-                }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        presentationMode.wrappedValue.dismiss()
-                    }
-                    .fontWeight(.bold)
-                    .foregroundColor(.green)
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done", action: { dismiss() })
+                        .fontWeight(.semibold)
                 }
             }
         }
+        .tint(BlindGuyTheme.accent)
         .preferredColorScheme(.dark)
         .onChange(of: spatial3DBubble) { _ in
             app.hearing.applyFeatureTogglesFromUserDefaults()
@@ -149,6 +137,12 @@ struct SettingsView: View {
         .onChange(of: hearingTones) { _ in
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
+    }
+
+    private func sectionHeader(_ title: String, icon: String) -> some View {
+        Label(title, systemImage: icon)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.secondary)
     }
 
     private func applyBridgeURL() {

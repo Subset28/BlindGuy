@@ -1,55 +1,66 @@
 import SwiftUI
 
 struct RadarView: View {
-    @State private var pulse: CGFloat = 1.0
+    @State private var pulse: CGFloat = 0.4
     @State private var rotation: Double = 0
-    
+
     var body: some View {
         ZStack {
-            // Static Outer Rings
-            ForEach(0..<4) { i in
+            ForEach(0..<5) { i in
                 Circle()
-                    .stroke(Color.green.opacity(0.1), lineWidth: 1)
-                    .scaleEffect(CGFloat(i + 1) * 0.4)
+                    .stroke(BlindGuyTheme.accent.opacity(0.06 - Double(i) * 0.01), lineWidth: 0.5)
+                    .scaleEffect(0.28 + CGFloat(i) * 0.18)
             }
-            
-            // Pulsing Scanning Ring
+
             Circle()
-                .stroke(Color.green.opacity(0.3), lineWidth: 2)
+                .stroke(BlindGuyTheme.accent.opacity(0.2), lineWidth: 1.2)
                 .scaleEffect(pulse)
-                .opacity(2.0 - Double(pulse))
+                .opacity(1.1 - (pulse - 0.4) * 1.2)
                 .onAppear {
-                    withAnimation(Animation.easeInOut(duration: 2).repeatForever(autoreverses: false)) {
-                        pulse = 2.0
+                    withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) {
+                        pulse = 1.05
                     }
                 }
-            
-            // Scanning Beam
-            AngularGradient(gradient: Gradient(colors: [.green.opacity(0.5), .clear]), center: .center)
-                .mask(Circle().stroke(lineWidth: 40))
+
+            Circle()
+                .trim(from: 0, to: 0.22)
+                .stroke(
+                    AngularGradient(
+                        colors: [BlindGuyTheme.accent.opacity(0.45), .clear],
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round)
+                )
                 .rotationEffect(.degrees(rotation))
                 .onAppear {
-                    withAnimation(Animation.linear(duration: 4).repeatForever(autoreverses: false)) {
+                    withAnimation(.linear(duration: 5.5).repeatForever(autoreverses: false)) {
                         rotation = 360
                     }
                 }
-            
-            // Center Dot (The Listener)
+
             Circle()
-                .fill(Color.green)
-                .frame(width: 12, height: 12)
-                .shadow(color: .green, radius: 10)
+                .fill(
+                    RadialGradient(
+                        colors: [BlindGuyTheme.accent, BlindGuyTheme.accent.opacity(0.25)],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: 10
+                    )
+                )
+                .frame(width: 14, height: 14)
+                .shadow(color: BlindGuyTheme.accent.opacity(0.4), radius: 8)
         }
-        .frame(width: 300, height: 300)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Spatial radar")
-        .accessibilityValue("Decorative visualization of direction and range around you.")
+        .accessibilityLabel("Field radar")
+        .accessibilityValue("Animated when idle. Live camera shows when you start the camera.")
     }
 }
 
 #Preview {
     ZStack {
-        Color.black.edgesIgnoringSafeArea(.all)
+        Color.black.ignoresSafeArea()
         RadarView()
     }
+    .frame(height: 280)
 }

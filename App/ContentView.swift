@@ -1,7 +1,6 @@
 import BlindGuyKit
 import SwiftUI
 
-/// Main shell: iOS-first. Optional “lab computer” URL lives only in Settings; no ports on the home screen.
 struct ContentView: View {
     @AppStorage("shouldShowOnboarding") private var shouldShowOnboarding: Bool = true
     @EnvironmentObject private var app: AppViewModel
@@ -15,7 +14,7 @@ struct ContentView: View {
         Group {
             if shouldShowOnboarding {
                 OnboardingView(shouldShowOnboarding: $shouldShowOnboarding)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
             } else {
                 mainDashboard
                     .sheet(isPresented: $showingSettings) {
@@ -30,297 +29,307 @@ struct ContentView: View {
     }
 
     private var mainDashboard: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.04, green: 0.05, blue: 0.09),
-                    Color.black,
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                BlindGuyTheme.background.ignoresSafeArea()
+                RadialGradient(
+                    colors: [BlindGuyTheme.accent.opacity(0.09), .clear],
+                    center: .top,
+                    startRadius: 20,
+                    endRadius: 380
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
-            // Soft vignette
-            RadialGradient(
-                colors: [Color.green.opacity(0.08), Color.clear],
-                center: .top,
-                startRadius: 40,
-                endRadius: 420
-            )
-            .ignoresSafeArea()
-            .allowsHitTesting(false)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    header
-                        .padding(.horizontal, 20)
-                        .padding(.top, 8)
-
-                    statusChips
-                        .padding(.horizontal, 20)
-                        .padding(.top, 16)
-
-                    if !app.modelAvailable {
-                        modelSetupCallout
-                            .padding(.horizontal, 20)
-                            .padding(.top, 20)
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        statusStrip
+                        if !app.modelAvailable { modelCallout }
+                        visualStage
+                        statsStrip
+                        if showPayloadHUD, app.modelAvailable, let s = app.session {
+                            PayloadHUD(session: s, hapticsEnabled: hapticsOn)
+                                .padding(.horizontal, 4)
+                        }
                     }
-
-                    visualCenter
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-
-                    statsRow
-                        .padding(.horizontal, 20)
-
-                    if showPayloadHUD, app.modelAvailable, let s = app.session {
-                        PayloadHUD(session: s, hapticsEnabled: hapticsOn)
-                            .padding(.horizontal, 20)
-                            .padding(.top, 12)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 4)
+                    .padding(.bottom, 100)
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("BlindGuy")
+                            .font(.title2.weight(.bold))
+                        Text("Spatial audio")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
                     }
-
-                    scanButton
-                        .padding(.horizontal, 20)
-                        .padding(.top, 20)
-                        .padding(.bottom, 28)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.body.weight(.semibold))
+                            .symbolRenderingMode(.hierarchical)
+                            .frame(width: 40, height: 40)
+                            .background {
+                                Circle()
+                                    .fill(Color.white.opacity(0.06))
+                            }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Settings")
                 }
             }
         }
+        .tint(BlindGuyTheme.accent)
+        .safeAreaInset(edge: .bottom) { scanDock }
         .preferredColorScheme(.dark)
     }
 
-    private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("BlindGuy")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-                Text("Spatial audio")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 8)
-            Button {
-                showingSettings = true
-            } label: {
-                Image(systemName: "gearshape.fill")
+    private var statusStrip: some View {
+        HStack(spacing: 10) {
+            StatusChip(
+                systemImage: hearing.isUsingOnDevicePayload ? "iphone" : "dot.radiowaves.left.and.right",
+                title: hearing.isUsingOnDevicePayload ? "iPhone" : "Audio",
+                subtitle: hearing.isUsingOnDevicePayload ? "On-device" : "Active",
+                color: hearing.isUsingOnDevicePayload ? BlindGuyTheme.accent : BlindGuyTheme.warmAlert
+            )
+            StatusChip(
+                systemImage: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "headphones" : "speaker.wave.2",
+                title: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "Spatial" : "Stereo",
+                subtitle: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "3D" : "2D",
+                color: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? BlindGuyTheme.info : BlindGuyTheme.warmAlert.opacity(0.85)
+            )
+        }
+    }
+
+    private var modelCallout: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
                     .font(.title3)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(.secondary)
-                    .frame(width: 44, height: 44)
-                    .background {
-                        Circle()
-                            .fill(.ultraThinMaterial)
-                    }
+                    .foregroundStyle(BlindGuyTheme.warmAlert)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Add the vision model")
+                        .font(.headline)
+                    Text("Include yolov8n.mlpackage in this app in Xcode, then build again. Optional lab setup is in Settings if your team needs it.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Settings")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background {
+            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                .fill(BlindGuyTheme.warmAlert.opacity(0.08))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                .strokeBorder(BlindGuyTheme.warmAlert.opacity(0.3), lineWidth: 1)
         }
     }
 
-    private var statusChips: some View {
-        HStack(spacing: 8) {
-            statusPill(
-                icon: hearing.isUsingOnDevicePayload ? "iphone" : "antenna.radiowaves.left.and.right",
-                text: hearing.isUsingOnDevicePayload ? "This iPhone" : "Hearing",
-                detail: hearing.isUsingOnDevicePayload
-                    ? "Vision on-device"
-                    : "Spatial sound active",
-                tint: hearing.isUsingOnDevicePayload
-                    ? Color.green.opacity(0.85)
-                    : Color.orange.opacity(0.9)
-            )
-
-            statusPill(
-                icon: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "headphones" : "speaker.wave.2",
-                text: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "Headphones" : "Speaker",
-                detail: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble) ? "3D audio" : "Stereo",
-                tint: (hearing.isSpatialHeadphoneRouteActive && spatial3DBubble)
-                    ? Color.cyan.opacity(0.9)
-                    : Color.orange.opacity(0.75)
-            )
+    @ViewBuilder
+    private var visualStage: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            #if os(iOS)
+            if app.modelAvailable, app.isScanning, let session = app.captureSessionForPreview {
+                HStack {
+                    Text("Camera")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Label("LIVE", systemImage: "record.circle.fill")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(BlindGuyTheme.warmAlert)
+                }
+                CameraFeedPreview(session: session)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 220, idealHeight: 300)
+                    .background(Color.black)
+                    .clipShape(RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                            .strokeBorder(LinearGradient(
+                                colors: [BlindGuyTheme.accent.opacity(0.5), .white.opacity(0.08)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ), lineWidth: 1)
+                    }
+                    .shadow(color: BlindGuyTheme.accent.opacity(0.12), radius: 24, y: 12)
+            } else {
+                radarPlaceholder
+            }
+            #else
+            radarPlaceholder
+            #endif
         }
     }
 
-    private func statusPill(icon: String, text: String, detail: String, tint: Color) -> some View {
+    private var radarPlaceholder: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Field view")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ZStack {
+                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+                RadarView()
+            }
+            .frame(height: 280)
+            .clipShape(RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+            }
+        }
+    }
+
+    private var statsStrip: some View {
+        HStack(spacing: 0) {
+            StatPill(label: "Alert", value: app.threatLabel, emphasis: .high)
+            divider
+            StatPill(label: "Objects", value: "\(app.cloneCount)", emphasis: .normal)
+            divider
+            StatPill(label: "Latency", value: app.latencyLine, emphasis: .muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+        .background {
+            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                .fill(Color.white.opacity(0.05))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+        }
+    }
+
+    private var divider: some View {
+        Rectangle()
+            .fill(Color.white.opacity(0.1))
+            .frame(width: 1)
+            .frame(maxHeight: 44)
+    }
+
+    private var scanDock: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
+                    app.setScanning(!app.isScanning)
+                }
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: app.isScanning ? "stop.fill" : "camera.fill")
+                    Text(app.isScanning ? "Stop camera" : "Start camera")
+                        .fontWeight(.semibold)
+                }
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 18)
+            }
+            .buttonStyle(PrimaryDockButtonStyle(isOn: app.isScanning, enabled: app.modelAvailable))
+            .disabled(!app.modelAvailable)
+            .accessibilityLabel(app.isScanning ? "Stop camera" : "Start camera")
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .background {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+                .ignoresSafeArea(edges: .bottom)
+        }
+    }
+}
+
+// MARK: - Subviews
+
+private struct StatusChip: View {
+    var systemImage: String
+    var title: String
+    var subtitle: String
+    var color: Color
+
+    var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(tint)
-            VStack(alignment: .leading, spacing: 0) {
-                Text(text)
-                    .font(.caption.weight(.semibold))
-                Text(detail)
+            Image(systemName: systemImage)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(color)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                Text(subtitle)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
         .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerS, style: .continuous)
+                .fill(Color.white.opacity(0.06))
         }
-        .overlay {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-        }
-    }
-
-    private var modelSetupCallout: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label {
-                Text("Camera on this iPhone")
-                    .font(.headline)
-            } icon: {
-                Image(systemName: "camera.viewfinder")
-                    .foregroundStyle(.green)
-            }
-            Text("Add the yolov8n Core ML model in Xcode, then build again, so the camera can see your surroundings. Everything else in this app already runs on your iPhone.")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-            Text("A separate computer in the same room is only for team testing. If your project uses that, you’ll set it in Settings — not for normal, everyday use.")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.green.opacity(0.08))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(Color.green.opacity(0.25), lineWidth: 1)
-        }
-    }
-
-    private var radarBlock: some View {
-        RadarView()
-    }
-
-    #if os(iOS)
-    @ViewBuilder
-    private var visualCenter: some View {
-        if app.modelAvailable, app.isScanning, let session = app.captureSessionForPreview {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Live camera")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Image(systemName: "record.circle.fill")
-                        .font(.caption)
-                        .foregroundStyle(.red.opacity(0.85))
-                        .accessibilityHidden(true)
-                }
-                .padding(.horizontal, 4)
-                .accessibilityElement(children: .combine)
-                .accessibilityLabel("Live camera preview")
-
-                CameraFeedPreview(session: session)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 200, idealHeight: 280, maxHeight: 360)
-                    .background(Color.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                    }
-            }
-            .padding(.horizontal, 20)
-        } else {
-            radarBlock
-        }
-    }
-    #else
-    private var visualCenter: some View { radarBlock }
-    #endif
-
-    private var statsRow: some View {
-        HStack(spacing: 12) {
-            InfoCard(title: "Alert", value: app.threatLabel, valueColor: .green)
-            InfoCard(title: "Objects", value: "\(app.cloneCount)", valueColor: Color(white: 0.95))
-            InfoCard(title: "Delay", value: app.latencyLine, valueColor: Color(white: 0.6))
-        }
-    }
-
-    private var scanButton: some View {
-        Button {
-            app.setScanning(!app.isScanning)
-        } label: {
-            Text(app.isScanning ? "Stop" : "Start camera")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-        }
-        .buttonStyle(ScanningButtonStyle(isScanning: app.isScanning, enabled: app.modelAvailable))
-        .disabled(!app.modelAvailable)
-        .accessibilityLabel(app.isScanning ? "Stop camera" : "Start camera")
-        .accessibilityHint(
-            app.modelAvailable
-                ? (app.isScanning
-                    ? "Stops the camera and vision."
-                    : "Uses the on-device camera and vision when the model is included.")
-                : "The vision model is not in this app build. Add the Core ML model in Xcode, or ask your developer."
-        )
     }
 }
 
-// MARK: - Button style
+private struct StatPill: View {
+    enum Emphasis { case high, normal, muted }
+    var label: String
+    var value: String
+    var emphasis: Emphasis
 
-private struct ScanningButtonStyle: ButtonStyle {
-    var isScanning: Bool
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(.tertiary)
+            Text(value)
+                .font(.subheadline.weight(.bold))
+                .monospacedDigit()
+                .foregroundStyle(foreground)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+    }
+
+    private var foreground: some ShapeStyle {
+        switch emphasis {
+        case .high: BlindGuyTheme.accent
+        case .normal: Color.primary
+        case .muted: Color.secondary
+        }
+    }
+}
+
+private struct PrimaryDockButtonStyle: ButtonStyle {
+    var isOn: Bool
     var enabled: Bool
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundStyle(isScanning ? .black : Color.primary)
+            .foregroundStyle(isOn ? Color.black : Color.primary.opacity(0.95))
             .background {
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
                     .fill(
-                        isScanning
-                            ? AnyShapeStyle(Color.green)
-                            : AnyShapeStyle(Color(.secondarySystemBackground))
+                        isOn
+                            ? AnyShapeStyle(BlindGuyTheme.accent)
+                            : AnyShapeStyle(Color.white.opacity(0.1))
                     )
             }
-            .opacity(enabled ? 1.0 : 0.45)
-            .scaleEffect(configuration.isPressed && enabled ? 0.98 : 1.0)
-            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
-    }
-}
-
-// MARK: - Stat cards
-
-struct InfoCard: View {
-    var title: String
-    var value: String
-    var valueColor: Color
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.caption2)
-                .fontWeight(.semibold)
-                .foregroundStyle(.tertiary)
-                .textCase(.uppercase)
-            Text(value)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .monospaced()
-                .foregroundColor(valueColor)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
-        }
+            .overlay {
+                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.12), lineWidth: isOn ? 0 : 1)
+            }
+            .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
+            .opacity(enabled ? 1 : 0.4)
     }
 }
 

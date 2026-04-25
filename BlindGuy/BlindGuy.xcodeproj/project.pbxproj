@@ -15,7 +15,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		46D89CA72F9D357100BE3B8D /* App */ = {
+		46D89CA72F9D357100BE3B8D /* ../App */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = ../App;
 			sourceTree = "<group>";
@@ -37,7 +37,7 @@
 		46D89C9C2F9D357100BE3B8D = {
 			isa = PBXGroup;
 			children = (
-				46D89CA72F9D357100BE3B8D /* App */,
+				46D89CA72F9D357100BE3B8D /* ../App */,
 				46D89CA62F9D357100BE3B8D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -66,7 +66,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				46D89CA72F9D357100BE3B8D /* App */,
+				46D89CA72F9D357100BE3B8D /* ../App */,
 			);
 			name = BlindGuy;
 			packageProductDependencies = (
@@ -100,13 +100,13 @@
 			);
 			mainGroup = 46D89C9C2F9D357100BE3B8D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				46D89CC02F9D357100BE3B8A /* XCLocalSwiftPackageReference "../ios/BlindGuyKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 46D89CA62F9D357100BE3B8D /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
-			packageReferences = (
-				46D89CC02F9D357100BE3B8A /* XCLocalSwiftPackageReference "ios/BlindGuyKit" */,
-			);
 			targets = (
 				46D89CA42F9D357100BE3B8D /* BlindGuy */,
 			);
@@ -260,12 +260,18 @@
 				DEVELOPMENT_TEAM = YBY4H53AXD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = lebron;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -297,12 +303,18 @@
 				DEVELOPMENT_TEAM = YBY4H53AXD;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCameraUsageDescription = lebron;
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
+				INFOPLIST_KEY_UIStatusBarStyle = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
 				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -348,7 +360,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		46D89CC02F9D357100BE3B8A /* XCLocalSwiftPackageReference "ios/BlindGuyKit" */ = {
+		46D89CC02F9D357100BE3B8A /* XCLocalSwiftPackageReference "../ios/BlindGuyKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../ios/BlindGuyKit;
 		};
@@ -357,7 +369,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		46D89CC12F9D357100BE3B8A /* BlindGuyKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 46D89CC02F9D357100BE3B8A /* XCLocalSwiftPackageReference "ios/BlindGuyKit" */;
+			package = 46D89CC02F9D357100BE3B8A /* XCLocalSwiftPackageReference "../ios/BlindGuyKit" */;
 			productName = BlindGuyKit;
 		};
 /* End XCSwiftPackageProductDependency section */
