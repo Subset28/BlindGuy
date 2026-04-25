@@ -98,21 +98,25 @@ struct ContentView: View {
                     .padding(.horizontal, 20)
                     
                     // Main Action Button (Lanyard Mode Toggle)
-                    Button(action: { isScanning.toggle() }) {
-                        Text(isScanning ? "STOP SCANNING" : "START SCANNING")
+                    Button(action: { 
+                        isScanning.toggle()
+                        HapticManager.shared.triggerDiscovery() // Feedback on toggle
+                    }) {
+                        Text(isScanning ? "Stop Scanning" : "Start Scanning")
                             .font(.headline.bold())
                             .foregroundColor(isScanning ? .black : .primary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 60)
                             .background(isScanning ? Color.green : Color(uiColor: .systemBackground))
                             .cornerRadius(16)
-                            .shadow(color: (isScanning ? Color.green : Color.white).opacity(0.2), radius: 15, x: 0, y: 8)
+                            .shadow(color: (isScanning ? Color.green : Color.white).opacity(0.15), radius: 12, x: 0, y: 6)
                     }
-                    .padding(.horizontal, 20)
+                    .padding(.horizontal, 24)
                     .accessibilityAddTraits(.isButton)
                     .accessibilityHint(isScanning ? "Stops the real-time spatial radar." : "Starts the real-time spatial radar.")
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 24)
+                .safeAreaInset(edge: .bottom) { Color.clear.frame(height: 10) }
             }
         }
         .preferredColorScheme(.dark)
