@@ -19,14 +19,14 @@ Add these to the **BlindGuy** app target (**Target → Build Phases → Compile 
 
 | Path (from repo root) | Role |
 |----------------------|------|
-| `BlindGuy/BlindGuy/BlindGuyAppEntry.swift` | `@main` entry |
-| `BlindGuy/BlindGuy/AppViewModel.swift` | Wires vision + camera + hearing |
-| `BlindGuy/BlindGuy/HearingEngine.swift` | Spatial audio engine |
-| `BlindGuy/BlindGuy/ContentView.swift` | Main UI Dashboard |
-| `BlindGuy/BlindGuy/OnboardingView.swift` | Onboarding Flow |
-| `BlindGuy/BlindGuy/RadarView.swift` | Spatial Radar Component |
-| `BlindGuy/BlindGuy/SettingsView.swift` | App Settings |
-| `BlindGuy/BlindGuy/HapticManager.swift` | Haptic Feedback Engine |
+| `App/BlindGuyAppEntry.swift` | `@main` entry |
+| `App/AppViewModel.swift` | Wires vision + camera + hearing |
+| `App/HearingEngine.swift` | Spatial audio engine |
+| `App/ContentView.swift` | Main UI Dashboard |
+| `App/OnboardingView.swift` | Onboarding Flow |
+| `App/RadarView.swift` | Spatial Radar Component |
+| `App/SettingsView.swift` | App Settings |
+| `App/HapticManager.swift` | Haptic Feedback Engine |
 
 **Delete** the Xcode template `ContentView.swift` if it conflicts with `ios/ContentView.swift`.
 
