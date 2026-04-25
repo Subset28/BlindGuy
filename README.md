@@ -40,7 +40,13 @@ Point the iOS app at `http://<your-mac-lan-ip>:8765` (`POST /infer` with a JPEG,
 - `GET /judge` - **full-screen judge + demo dashboard** (live bboxes, `/health` stats, optional **browser TTS** for narration). Open this on a projector during your pitch; team phones can still hit `POST /infer` on the same port.
 - `GET /health` - heartbeat + `uptime_s`, performance stats, `visual_version`, and `hints` (object counts, nearest class/distance, **narration_lines** for a quick TTS or UI readout). Same JSON the iOS `PayloadHUD` could mirror in spirit.
 - `GET /frame` - latest detection payload in the shared JSON contract.
+- `GET /payload` - **alias of `/frame`** (hearing / spatial code may use this name; identical body).
 - `POST /infer` - one JPEG (raw body or multipart field `image`); same JSON in the response, and it updates the snapshot for `GET /frame`.
+
+### 3.1) iOS app (final wiring)
+
+- **Xcode** setup: `ios/XCODE_SETUP.md` — one `@main` (`BlindGuyAppEntry`), **BlindGuyKit**, **HearingEngine** (audio clones + optional bridge polling), **AppViewModel** + **CameraPipeline** + **ContentView** UI.
+- **Hearing** with no CoreML bundle: set **Settings → Development → Python bridge** to your Mac’s `http://<ip>:8765` and run the vision service; audio follows **`/frame`**. With **yolov8n.mlpackage** in the app, vision + camera feed hearing on-device.
 
 ### 4) Optional calibration
 

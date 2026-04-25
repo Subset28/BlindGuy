@@ -160,6 +160,11 @@ def create_app(config: VisualConfig, use_local_camera: bool = True) -> Flask:
     def frame() -> tuple[dict, int]:
         return jsonify(service.latest_payload()), 200
 
+    @app.get("/payload")
+    def payload() -> tuple[dict, int]:
+        """Alias of `/frame` (same contract). Use this name for the Hearing / spatial engine."""
+        return jsonify(service.latest_payload()), 200
+
     @app.route("/infer", methods=["POST", "OPTIONS"])
     def infer() -> tuple[Any, int]:
         if request.method == "OPTIONS":

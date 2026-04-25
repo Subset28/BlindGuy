@@ -19,4 +19,4 @@
 ## Testing
 
 - Python: from repo root with venv, `pytest -m "not slow"` (faster) or full `pytest` as needed.
-- Swift: `cd ios/BlindGuyKit && swift build` (Xcode is required to build the iOS destination).
+- Swift package: `cd ios/BlindGuyKit && swift build` (macOS compiles the kit; the full iOS app follows **`ios/XCODE_SETUP.md`**).

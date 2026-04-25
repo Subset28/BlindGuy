@@ -71,6 +71,9 @@ def test_app_health_includes_hints_and_uptime() -> None:
     assert c.get("/").status_code == 200
     home = c.get("/").get_data(as_text=True)
     assert "judge" in home.lower() or "Judge" in home
+    f = c.get("/frame").get_json()
+    p = c.get("/payload").get_json()
+    assert f == p
 
 
 def test_judge_bundles_with_package() -> None:

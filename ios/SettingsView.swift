@@ -2,7 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.presentationMode) var presentationMode
-    
+    @EnvironmentObject private var app: AppViewModel
+    @AppStorage("blindguy.visionBridgeBaseURLString") private var bridgeURLString: String = "http://127.0.0.1:8765"
+
     @State private var scanDistance: Double = 15.0
     @State private var alertVolume: Double = 0.8
     @State private var useHeadTracking = true
@@ -51,6 +53,29 @@ struct SettingsView: View {
                         Text("Audio & Alerts")
                     }
                     
+                    Section {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Python bridge (Mac / PC)")
+                                .font(.headline)
+                            Text("When no CoreML model in the app, or for lab demos, the hearing engine polls this base URL for GET /frame (same as GET /payload on the server).")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            TextField("http://192.168.1.10:8765", text: $bridgeURLString)
+                                .textContentType(.URL)
+                                .autocorrectionDisabled()
+                                .onSubmit { applyBridgeURL() }
+                        }
+                        .padding(.vertical, 4)
+                        Button("Apply bridge URL") {
+                            applyBridgeURL()
+                        }
+                        .tint(.green)
+                    } header: {
+                        Text("Development")
+                    } footer: {
+                        Text("Run: PYTHONPATH=src python -m visual_engine.main --host 0.0.0.0 --port 8765 (optionally --no-local-camera for phone-only).")
+                    }
+
                     Section {
                         Button(action: {
                             if let url = URL(string: UIApplication.openSettingsURLString) {
@@ -105,8 +130,18 @@ struct SettingsView: View {
         }
         .preferredColorScheme(.dark)
     }
+
+    private func applyBridgeURL() {
+        var s = bridgeURLString.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.isEmpty { s = "http://127.0.0.1:8765" }
+        if URL(string: s) == nil { return }
+        if let u = URL(string: s) {
+            app.hearing.reconfigure(bridgeBase: u)
+        }
+    }
 }
 
 #Preview {
     SettingsView()
+        .environmentObject(AppViewModel())
 }

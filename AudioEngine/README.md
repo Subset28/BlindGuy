@@ -1,10 +1,11 @@
-# BlindGuy — Audio Engine
+# BlindGuy — Audio Engine (reference + lab tools)
 
-This folder contains a standalone iOS audio engine app and a local JSON simulator.
+**Production iOS app:** the wired **`HearingEngine`** and **`@main` entry** live under **`../ios/BlindGuyRuntime/`** with **`BlindGuyKit`**. See **`../ios/XCODE_SETUP.md`**.
 
-Overview:
-- `AudioEngineApp/` — SwiftUI iOS app implementing `AVAudioEngine` with stereo panning and pitch/volume modulation. Polls a local JSON bridge and renders spatialized audio clones.
-- `simulator/` — Small Flask server that emits JSON frames matching the PRD contract for testing.
+This folder keeps a **local JSON simulator** and legacy Swift files for experiments:
+
+- `AudioEngineApp/` — older SwiftUI shell (no longer the canonical `@main`). Spatial audio logic was merged into **`ios/BlindGuyRuntime/HearingEngine.swift`**, which consumes **`FramePayload`** from **on-device** vision or **GET `/frame`** (same as **GET `/payload`**) on the main Python service.
+- `simulator/` — small Flask process for synthetic frames; you can also use the repo **`src/visual_engine`** service on port **8765** for real YOLO output.
 
 Quick start
 
@@ -18,7 +19,7 @@ pip install -r requirements.txt
 python server.py
 ```
 
-Simulator will listen on `http://127.0.0.1:8765/payload`.
+The repo’s main vision service (`python -m visual_engine.main`, default **8765**) exposes **`/frame`**, **`/payload`** (alias), **`/infer`**, **`/judge`**. The legacy simulator in this folder may use `/payload` on its own port; align ports when testing.
 
 2) Open `AudioEngineApp` in Xcode (open the folder as a project) and run on a device or simulator. The app polls the simulator and plays spatial audio using stereo panning, pitch, and volume modulation.
 

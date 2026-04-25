@@ -12,6 +12,12 @@ This file is **append-only** (add new entries at the **top**). It records **visi
 
 ---
 
+## 2026-04-29
+
+- **Final wiring (iOS + Python + hearing):** **`BlindGuyRuntime/`** — **`AppViewModel`**, **`HearingEngine`** ( **`BlindGuyKit.FramePayload`**, on-device **`$lastPayload`** or **`GET /frame`** bridge), **`BlindGuyAppEntry`** (`@main`). **`ContentView`** + Settings bridge URL. **`GET /payload`** = **`/frame`** in **`app.py`**. **`ios/XCODE_SETUP.md`**, **`Info.plist.example`**, **`AudioEngine/README.md`** updated; legacy **`AudioEngineApp`** no longer `@main`.
+
+---
+
 ## 2026-04-28
 
 - **Main integration:** Merged **`origin/Visual`**, **`origin/UI/UX`**, **`origin/Audio`** into **`main`**. **`PRD.md`** “Winning Code Stack” conflict resolved: **iOS + CoreML** production path, **Flask** in-repo reference + **`/judge`**, optional external FastAPI/GCP/Firebase later. (UI/UX files under `ios/` and `ui/`; Hearing under **`AudioEngine/`** — coordinate paths with `ios/BlindGuyKit` as needed.)

@@ -1,6 +1,8 @@
 # BlindGuy on iOS (Swift / SwiftUI)
 
-This folder contains **`BlindGuyKit`**, a Swift package that runs **YOLOv8n on-device** via **CoreML + Vision** and produces the **same JSON-shaped `FramePayload`** as the Python reference server (`docs/contract.example.json`).
+**Full app (Xcode):** see **`XCODE_SETUP.md`** — one app target, **`BlindGuyKit`** package, and **`BlindGuyRuntime/`** (`AppViewModel`, **`HearingEngine`**, single **`@main`**) wiring vision + camera + spatial audio. **`Info.plist.example`** covers camera and local HTTP.
+
+The **`BlindGuyKit`** Swift package runs **YOLOv8n on-device** via **CoreML + Vision** and produces the **same JSON-shaped `FramePayload`** as the Python server (`docs/contract.example.json`).
 
 ## Team handoff (Visual is wired; you plug the app + audio)
 

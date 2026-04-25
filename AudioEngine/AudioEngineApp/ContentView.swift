@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct ContentView: View {
+struct AudioEngine_OldContent: View {
     @EnvironmentObject var engine: AudioEngineManager
 
     var body: some View {
@@ -27,9 +27,9 @@ struct ContentView: View {
     }
 }
 
-struct ContentView_Previews: PreviewProvider {
+struct AudioEngine_OldContent_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView()
+        AudioEngine_OldContent()
             .environmentObject(AudioEngineManager())
     }
 }
