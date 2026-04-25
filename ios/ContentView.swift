@@ -67,13 +67,15 @@ struct ContentView: View {
                         
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "gearshape.fill")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Color.white.opacity(0.1))
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.primary)
+                                .padding(12)
+                                .background(.ultraThinMaterial)
                                 .clipShape(Circle())
                         }
                         .accessibilityLabel("Settings")
+                        .accessibilityHint("Opens the app configuration and hardware setup.")
                     }
                 }
                 .padding(.horizontal, 30)
@@ -98,15 +100,17 @@ struct ContentView: View {
                     // Main Action Button (Lanyard Mode Toggle)
                     Button(action: { isScanning.toggle() }) {
                         Text(isScanning ? "STOP SCANNING" : "START SCANNING")
-                            .font(.system(size: 16, weight: .black))
-                            .foregroundColor(.black)
+                            .font(.headline.bold())
+                            .foregroundColor(isScanning ? .black : .primary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 60)
-                            .background(isScanning ? Color.green : Color.white)
+                            .background(isScanning ? Color.green : Color(uiColor: .systemBackground))
                             .cornerRadius(16)
-                            .shadow(color: (isScanning ? Color.green : Color.white).opacity(0.3), radius: 20, x: 0, y: 10)
+                            .shadow(color: (isScanning ? Color.green : Color.white).opacity(0.2), radius: 15, x: 0, y: 8)
                     }
                     .padding(.horizontal, 20)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityHint(isScanning ? "Stops the real-time spatial radar." : "Starts the real-time spatial radar.")
                 }
                 .padding(.bottom, 40)
             }
@@ -121,22 +125,24 @@ struct InfoCard: View {
     var color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.system(size: 10, weight: .heavy))
-                .foregroundColor(.gray)
+                .font(.caption2.bold())
+                .foregroundColor(.secondary)
             Text(value)
-                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .font(.title3.bold().monospaced())
                 .foregroundColor(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(15)
-        .background(Color.white.opacity(0.05))
+        .padding(16)
+        .background(.ultraThinMaterial)
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                .stroke(.white.opacity(0.1), lineWidth: 0.5)
         )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(title): \(value)")
     }
 }
 

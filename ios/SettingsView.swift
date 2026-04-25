@@ -15,45 +15,74 @@ struct SettingsView: View {
                 Color.black.edgesIgnoringSafeArea(.all)
                 
                 List {
-                    Section(header: Text("Spatial Radar Configuration").foregroundColor(.green)) {
-                        VStack(alignment: .leading) {
+                    Section {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Max Scan Distance: \(Int(scanDistance))m")
+                                .font(.headline)
                             Slider(value: $scanDistance, in: 5...30, step: 1)
-                                .accentColor(.green)
+                                .tint(.green)
                         }
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 4)
                         
                         Toggle("Head Tracking (AirPods Pro)", isOn: $useHeadTracking)
                             .tint(.green)
+                            .font(.body)
+                    } header: {
+                        Text("Spatial Radar Configuration")
+                    } footer: {
+                        Text("Higher distance allows earlier detection but may increase background processing.")
                     }
                     
-                    Section(header: Text("Audio & Alerts").foregroundColor(.green)) {
-                        VStack(alignment: .leading) {
+                    Section {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Alert Volume: \(Int(alertVolume * 100))%")
+                                .font(.headline)
                             Slider(value: $alertVolume, in: 0...1)
-                                .accentColor(.green)
+                                .tint(.green)
                         }
-                        .padding(.vertical, 8)
+                        .padding(.vertical, 4)
                         
                         Toggle("High Threat Alerts Only", isOn: $highThreatOnly)
                             .tint(.green)
                         
                         Toggle("VoiceOver Haptic Feedback", isOn: $voiceOverGuidance)
                             .tint(.green)
+                    } header: {
+                        Text("Audio & Alerts")
                     }
                     
-                    Section(header: Text("Information").foregroundColor(.green)) {
+                    Section {
+                        Button(action: {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            HStack {
+                                Text("System Permissions")
+                                Spacer()
+                                Image(systemName: "arrow.up.forward.app")
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    } header: {
+                        Text("Privacy")
+                    } footer: {
+                        Text("BlindGuy requires Camera and Motion permissions for object detection and head tracking.")
+                    }
+                    
+                    Section {
                         HStack {
                             Text("Version")
                             Spacer()
                             Text("1.0.0 (Academies Hacks)")
-                                .foregroundColor(.gray)
+                                .foregroundColor(.secondary)
                         }
                         
                         Button("Re-watch Onboarding") {
                             // Logic to reset AppStorage would go here
                         }
-                        .foregroundColor(.blue)
+                    } header: {
+                        Text("Information")
                     }
                 }
                 .listStyle(InsetGroupedListStyle())
