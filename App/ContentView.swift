@@ -113,7 +113,7 @@ struct ContentView: View {
                 .padding(.top, 20)
 
                 if !app.modelAvailable {
-                    Text("On-device: add yolov8n.mlpackage to the app, or set the Mac bridge URL in Settings → Development.")
+                    Text("For on-device camera vision: add yolov8n.mlpackage to the BlindGuy app target in Xcode. For use without that file: open Settings (gear) → Development, set the Python bridge URL to the machine running visual_engine, tap Apply — hearing can use the bridge; Start scanning still needs the bundled model.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
