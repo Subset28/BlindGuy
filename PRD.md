@@ -7,6 +7,30 @@
 ---
 
 ## 1. Concept & Theme Alignment
+... [content omitted for brevity] ...
+
+---
+
+## 🚀 The Winning Code Stack
+
+To achieve sub-100ms latency and "utter beauty," we are utilizing a high-performance hybrid stack:
+
+### **Mobile (The Sensor & Output)**
+- **Language**: **Java (Android Native)**. We need direct access to the `Camera2` API and high-priority `AudioTrack` threads to minimize hardware-to-software latency.
+- **Spatial Audio**: **Resonance Audio SDK**. This provides the HRTF (Head-Related Transfer Function) simulation needed to make the "Audio Clones" feel three-dimensional.
+
+### **AI Engine (The Vision)**
+- **Model**: **YOLOv8 (Nano)**.
+- **Inference**: **TensorFlow Lite (TFLite)** with **GPU Delegate**. The model will be quantized to **INT8** to run entirely on the mobile NPU/GPU, bypassing the CPU to keep frames-per-second high.
+
+### **Cloud & Dashboard (The Judge Experience)**
+- **Backend**: **Python (FastAPI)**. Fast, asynchronous, and perfect for handling the telemetry bridge.
+- **Hosting**: **Google Cloud Platform (GCP) Cloud Run**. Scalable, low-latency container hosting.
+- **Real-time Sync**: **Firebase Realtime Database**. This acts as the "Bridge" to mirror the mobile device's auditory clones onto the Judge's web dashboard instantly.
+
+---
+
+## 2. User Experience (UX) Flow
 
 ### The Problem
 
