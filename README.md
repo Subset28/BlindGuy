@@ -34,7 +34,9 @@ Point the iOS app at `http://<your-mac-lan-ip>:8765` (`POST /infer` with a JPEG,
 
 ### 3) Endpoints
 
-- `GET /health` - service heartbeat + live performance stats.
+- `GET /` - tiny landing with links to the judge view and the JSON APIs.
+- `GET /judge` - **full-screen judge + demo dashboard** (live bboxes, `/health` stats, optional **browser TTS** for narration). Open this on a projector during your pitch; team phones can still hit `POST /infer` on the same port.
+- `GET /health` - heartbeat + `uptime_s`, performance stats, `visual_version`, and `hints` (object counts, nearest class/distance, **narration_lines** for a quick TTS or UI readout). Same JSON the iOS `PayloadHUD` could mirror in spirit.
 - `GET /frame` - latest detection payload in the shared JSON contract.
 - `POST /infer` - one JPEG (raw body or multipart field `image`); same JSON in the response, and it updates the snapshot for `GET /frame`.
 

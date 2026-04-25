@@ -12,7 +12,7 @@ Use this as a **checklist** to connect camera → vision → consumers. Deeper A
   ```
 
 - iPhone or another client is the only camera (no Mac webcam): add **`--no-local-camera`** and drive **`POST /infer`** from the app (see [visual-integration.md](visual-integration.md)).
-- **Health check:** `GET /health` — **Frame mirror:** `GET /frame` (same JSON as a successful infer).
+- **Landing / judge view:** `GET /` — **`GET /judge`** (projector-friendly live bboxes + stats + optional browser TTS). **Health check:** `GET /health` (adds **`hints`**, **`uptime_s`**, **`narration_lines`**) — **Frame mirror:** `GET /frame` (same JSON as a successful infer).
 
 ## 2. iOS: on-device path (BlindGuyKit)
 

@@ -6,7 +6,7 @@ This folder contains **`BlindGuyKit`**, a Swift package that runs **YOLOv8n on-d
 
 | Who | You touch | What’s already in `BlindGuyKit` |
 |-----|-----------|---------------------------------|
-| **UI / UX** | Xcode app target, `Info.plist`, black UI / lanyard layout from PRD | `CoreMLDetector` → `OnDeviceVisionEngine` → `BlindGuySession`; **`CameraPipeline`** → `ingest` (or roll your own `AVCapture` → `ingest`). |
+| **UI / UX** | Xcode app target, `Info.plist`, black UI / lanyard layout from PRD | `CoreMLDetector` → `OnDeviceVisionEngine` → `BlindGuySession`; **`CameraPipeline`** → `ingest` (or roll your own `AVCapture` → `ingest`). Optional: **`PayloadHUD`** overlay (object count, vision ms, lens warning) + light **haptic** on high-priority objects (iOS). |
 | **Hearing / Audio** | Spatialization and routing in your module | **Subscribe to** `BlindGuySession` **`$lastPayload`**. For each `FramePayload`, use **`objects`** as `[DetectedObjectDTO]` (`ContractModels.swift`). Primary cue fields: **`objectId`**, **`objectClass`**, **`panValue`**, **`distanceM`**, **`velocityMps`**, **`priority`**, **`confidence`**. JSON keys when decoding from the server match `docs/contract.example.json` (snake_case). |
 
 `docs/WIRING.md` is the one-page E2E checklist. Python bridge: root **`README.md`** and **`docs/visual-integration.md`**.
@@ -60,6 +60,8 @@ Override **`init(vision:imageOrientation:)`** if the lanyard mount is not the de
 ## 4) SwiftUI
 
 Hearing can **`Combine` sink** on **`vision.objectWillChange`** or the session’s published **`$lastPayload`**. For a quick UI probe, use **`vision.lastPayload`**. For logs or a debug HUD, **`try payload.jsonString(prettyPrinted: true)`** (`FramePayload+JSON.swift`).
+
+**Hackathon / demo:** drop **`PayloadHUD(session: vision)`** in a corner of your lanyard screen so judges see live latency and count; on **iOS** a subtle **haptic** fires when at least one object is **HIGH** priority.
 
 ```swift
 struct LanyardRoot: View {

@@ -1,0 +1,70 @@
+import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
+
+/// On-screen stats for a live demo or debug: object count, vision latency, lens line.
+/// Add as an overlay in your lanyard UI; Hearing still consumes `lastPayload` directly.
+@MainActor
+public struct PayloadHUD: View {
+    @ObservedObject public var session: BlindGuySession
+    @State private var lastHighHapticFrame: Int = -1
+
+    public init(session: BlindGuySession) {
+        self._session = ObservedObject(wrappedValue: session)
+    }
+
+    public var body: some View {
+        if let p = session.lastPayload {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    stat("\(p.objects.count)", "objects")
+                    stat("\(p.visionDurationMs) ms", "vision")
+                }
+                if let cam = p.camera, cam.lensStatus != "ok" {
+                    HStack(alignment: .top, spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                        Text(shortLens(cam: cam))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(10)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            #if os(iOS)
+            .onChange(of: p.frameId) { newId in
+                guard let cur = session.lastPayload else { return }
+                let hasHigh = cur.objects.contains { $0.priority.uppercased() == "HIGH" }
+                if hasHigh, newId != lastHighHapticFrame {
+                    lastHighHapticFrame = newId
+                    UIImpactFeedbackGenerator(style: .rigid)
+                        .impactOccurred(intensity: 0.35)
+                }
+            }
+            #endif
+        } else {
+            Text("…")
+                .font(.caption.monospaced())
+                .foregroundStyle(.tertiary)
+                .padding(8)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+    }
+
+    private func stat(_ value: String, _ label: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(value)
+                .font(.system(.subheadline, design: .monospaced, weight: .semibold))
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func shortLens(cam: CameraHealthDTO) -> String {
+        if let a = cam.lensAnnounce, !a.isEmpty { return a }
+        return "Lens: \(cam.lensStatus) · var \(String(format: "%.0f", cam.lensLaplacianVar))"
+    }
+}

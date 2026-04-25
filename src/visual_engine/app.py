@@ -3,15 +3,17 @@ from __future__ import annotations
 import atexit
 from dataclasses import replace
 from threading import Lock, Thread
+from pathlib import Path
 from time import perf_counter, sleep, time
 from typing import Any
 
 import cv2
 import numpy as np
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 
 from .config import VisualConfig
 from .contracts import make_frame_payload
+from .demo_hints import VISUAL_VERSION, hints_from_payload
 from .lens_quality import LensWarningState
 from .vision_engine import VisionEngine
 
@@ -42,6 +44,7 @@ class VisionService:
         self._latest_object_count = 0
         # When only iOS sends frames, mark source for /health
         self._inference_source = "local_camera" if use_local_camera else "ios_or_remote"
+        self._t0 = time()
 
     def start(self) -> None:
         if self._running:
@@ -143,7 +146,15 @@ def create_app(config: VisualConfig, use_local_camera: bool = True) -> Flask:
 
     @app.get("/health")
     def health() -> tuple[dict, int]:
-        return {"status": "ok", **service.status()}, 200
+        snap = service.latest_payload()
+        body = {
+            "status": "ok",
+            **service.status(),
+            "uptime_s": round(time() - service._t0, 2),
+            "visual_version": VISUAL_VERSION,
+            "hints": hints_from_payload(snap),
+        }
+        return body, 200
 
     @app.get("/frame")
     def frame() -> tuple[dict, int]:
@@ -174,6 +185,36 @@ def create_app(config: VisualConfig, use_local_camera: bool = True) -> Flask:
             )
         payload = service.process_bgr_frame(bgr)
         return jsonify(payload), 200
+
+    _judge_path = Path(__file__).with_name("judge.html")
+
+    @app.get("/")
+    def index() -> str:
+        return (
+            "<!DOCTYPE html><html><head><meta charset='utf-8'/><title>BlindGuy Visual</title></head><body"
+            " style='font-family:system-ui;background:#0a0c10;color:#e8eaef;padding:2rem;'>"
+            "<h1>BlindGuy — Visual</h1><p>"
+            "<a style='color:#6ea8ff' href='/judge'>Open judge + demo dashboard</a> (best for live pitch)</p>"
+            "<p><a style='color:#6ea8ff' href='/health'>/health</a> &middot; "
+            "<a style='color:#6ea8ff' href='/frame'>/frame</a></p></body></html>"
+        )
+
+    @app.get("/judge")
+    def judge() -> Any:
+        try:
+            html = _judge_path.read_text(encoding="utf-8")
+        except OSError as e:
+            return (
+                jsonify(
+                    {
+                        "error": "judge.html missing",
+                        "path": str(_judge_path),
+                        "details": str(e),
+                    }
+                ),
+                500,
+            )
+        return Response(html, mimetype="text/html; charset=utf-8")
 
     atexit.register(service.stop)
 

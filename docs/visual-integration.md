@@ -13,6 +13,7 @@ This module is fully standalone. Use it to align **iOS (UI/UX + Audio)**, **Pyth
 
 ## Service contract
 
+- **Judge / demo (browser):** `http://<host>:8765/judge` — live view of the same `FramePayload` the phone produces; `GET /health` adds **`hints`** and **`narration_lines`**. Good for a projector during judging.
 - **Port (PRD default):** `8765`
 - **Latest snapshot:** `GET /frame` (same body as a successful `POST /infer`)
 - **iOS / one-shot from an image:** `POST /infer` (JPEG) — **updates** the latest payload so `GET /frame` stays in sync

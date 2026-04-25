@@ -28,6 +28,7 @@ This file is **append-only** (add new entries at the **top** under the date). It
 - **Documentation**: `docs/visual-integration.md`, `docs/contract.example.json`, root **`README.md`**, **`ios/README.md`**, **`PRD.md`** (§4, §4.1, §4.2) updated to match the above.
 - **Vision-only log (this file):** created **`docs/VISION_BRANCH_LOG.md`** as the append-only **Visual branch** engineering log; **`PRD.md`** (maintenance note + §4.1 **Docs in repo** row) and **`README.md`** (integration handoff) now reference it.
 - **E2E wiring (follow-up):** iOS **`CameraPipeline`** — **`AVCaptureSession`** (VGA, BGRA, back wide) → **`BlindGuySession.ingest`**; **`FramePayload+JSON.swift`** for debug/logging; **`docs/WIRING.md`** checklist; macOS compiles a stub that throws from **`start()`**.
+- **Hackathon / judge demo (later on same day):** **`GET /judge`** + **`judge.html`** (live canvas, `/health` + `/frame` poll, **Web Speech TTS**); `GET /` landing; **`/health`**: **`uptime_s`**, **`visual_version`**, **`hints`** + **`narration_lines`** via **`demo_hints`**. **iOS** **`PayloadHUD`** (stats + **haptic** on **HIGH**).
 
 ---
 
