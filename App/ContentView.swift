@@ -67,7 +67,7 @@ struct ContentView: View {
                             .padding(.top, 20)
                     }
 
-                    radarBlock
+                    visualCenter
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
 
@@ -200,6 +200,43 @@ struct ContentView: View {
     private var radarBlock: some View {
         RadarView()
     }
+
+    #if os(iOS)
+    @ViewBuilder
+    private var visualCenter: some View {
+        if app.modelAvailable, app.isScanning, let session = app.captureSessionForPreview {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Live camera")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Image(systemName: "record.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.red.opacity(0.85))
+                        .accessibilityHidden(true)
+                }
+                .padding(.horizontal, 4)
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Live camera preview")
+
+                CameraFeedPreview(session: session)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 200, idealHeight: 280, maxHeight: 360)
+                    .background(Color.black)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                    }
+            }
+            .padding(.horizontal, 20)
+        } else {
+            radarBlock
+        }
+    }
+    #else
+    private var visualCenter: some View { radarBlock }
+    #endif
 
     private var statsRow: some View {
         HStack(spacing: 12) {

@@ -14,6 +14,8 @@ This file is **append-only** (add new entries at the **top**). It records **visi
 
 ## 2026-04-25
 
+- **iOS live preview:** `BlindGuyKit` **`CameraPipeline.captureSession`** + **`App/CameraFeedPreview.swift`** (`AVCaptureVideoPreviewLayer`); **`ContentView`** shows **“Live camera”** while **Start camera** (same session as YOLO ingest).
+
 - **Settings & `BlindGuyKit`:** SwiftUI **Settings** toggles (`UserDefaults` keys `blindguy.feature.*`) for **3D bubble**, **hearing tones**, **distance TTS**, **haptics**, **Payload HUD**, **lens smudge TTS**; **`HearingEngine`** / **`HapticManager`** / **`LensWarningAnnouncer`** / **`PayloadHUD`** respect them. **`applyFeatureTogglesFromUserDefaults()`** on tone or spatial toggle (no global defaults observer, so the bridge URL field does not thrash audio).
 
 ---

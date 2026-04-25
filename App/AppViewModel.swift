@@ -6,6 +6,9 @@ import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
+#if os(iOS)
+import AVFoundation
+#endif
 
 /// Owns the three runtime wires: on-device **vision** (optional), **camera**, **hearing**.
 @MainActor
@@ -58,6 +61,11 @@ final class AppViewModel: ObservableObject {
         }
         #endif
     }
+
+    #if os(iOS)
+    /// Live camera preview; only non-`nil` while scanning with an on-device model (same graph as `BlindGuySession`).
+    var captureSessionForPreview: AVCaptureSession? { camera?.captureSession }
+    #endif
 }
 
 extension AppViewModel {

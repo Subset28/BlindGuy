@@ -30,6 +30,9 @@ public final class CameraPipeline: NSObject, ObservableObject, AVCaptureVideoDat
 
     @Published public private(set) var isRunning = false
 
+    /// The same `AVCaptureSession` that drives vision. Attach an `AVCaptureVideoPreviewLayer` in the app to show a live viewfinder.
+    public var captureSession: AVCaptureSession { session }
+
     /// - Parameters:
     ///   - vision: Session that owns the vision engine; receives frames on the main actor.
     ///   - imageOrientation: Vision orientation for the rear camera in portrait. Tune for lanyard / landscape use.
