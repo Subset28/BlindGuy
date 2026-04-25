@@ -1,11 +1,21 @@
 import SwiftUI
 
 struct ContentView: View {
+    @AppStorage("shouldShowOnboarding") var shouldShowOnboarding: Bool = true
     @State private var isScanning = true
     @State private var threatLevel = "LOW"
     @State private var objectCount = 3
     
     var body: some View {
+        if shouldShowOnboarding {
+            OnboardingView(shouldShowOnboarding: $shouldShowOnboarding)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+        } else {
+            mainDashboard
+        }
+    }
+    
+    var mainDashboard: some View {
         ZStack {
             // Background
             Color.black.edgesIgnoringSafeArea(.all)
