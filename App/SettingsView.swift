@@ -29,12 +29,12 @@ struct SettingsView: View {
                     }
 
                     Section {
-                        Toggle(isOn: $hearingTones) { Label("Object tones", systemImage: "dot.radiowaves.up.forward") }
-                        Toggle(isOn: $hearingTTS) { Label("Spoken distance (priority)", systemImage: "text.bubble") }
+                        Toggle(isOn: $hearingTones) { Label("Say each object’s name", systemImage: "text.bubble.fill") }
+                        Toggle(isOn: $hearingTTS) { Label("Add distance in speech", systemImage: "ruler") }
                     } header: {
                         sectionHeader("Hearing", icon: "ear")
                     } footer: {
-                        Text("Tones for tracks; TTS for high-priority objects.")
+                        Text("When the first toggle is on, the app speaks what it sees (e.g. person, car), throttled. The second adds how many meters. When the first is off, only high-priority tracks get a spoken line if distance is on.")
                     }
 
                     Section {

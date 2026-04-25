@@ -14,7 +14,7 @@ enum BlindGuyFeatureKey {
 enum BlindGuyFeatureFlags {
     private static let d = UserDefaults.standard
 
-    /// 3D HRTF “bubble” vs stereo pan only (still applies to tone clones when **hearingTones** is on).
+    /// 3D HRTF “bubble” vs stereo pan (audio UX label in UI; speech uses system TTS).
     static var spatial3DBubble: Bool {
         d.object(forKey: BlindGuyFeatureKey.spatial3DBubble) == nil ? true : d.bool(forKey: BlindGuyFeatureKey.spatial3DBubble)
     }
