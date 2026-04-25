@@ -19,14 +19,14 @@ Add these to the **BlindGuy** app target (**Target → Build Phases → Compile 
 
 | Path (from repo root) | Role |
 |----------------------|------|
-| `ios/BlindGuyRuntime/BlindGuyAppEntry.swift` | `@main` entry only — **remove** the template `*App.swift`’s `@main` or delete that file |
-| `ios/BlindGuyRuntime/AppViewModel.swift` | Wires vision + camera + hearing |
-| `ios/BlindGuyRuntime/HearingEngine.swift` | Spatial audio from `FramePayload` |
-| `ios/ContentView.swift` | Main UI |
-| `ios/OnboardingView.swift` | Onboarding |
-| `ios/RadarView.swift` | Radar |
-| `ios/SettingsView.swift` | Settings + bridge URL |
-| `ios/HapticManager.swift` | Haptics |
+| `BlindGuy/BlindGuy/BlindGuyAppEntry.swift` | `@main` entry |
+| `BlindGuy/BlindGuy/AppViewModel.swift` | Wires vision + camera + hearing |
+| `BlindGuy/BlindGuy/HearingEngine.swift` | Spatial audio engine |
+| `BlindGuy/BlindGuy/ContentView.swift` | Main UI Dashboard |
+| `BlindGuy/BlindGuy/OnboardingView.swift` | Onboarding Flow |
+| `BlindGuy/BlindGuy/RadarView.swift` | Spatial Radar Component |
+| `BlindGuy/BlindGuy/SettingsView.swift` | App Settings |
+| `BlindGuy/BlindGuy/HapticManager.swift` | Haptic Feedback Engine |
 
 **Delete** the Xcode template `ContentView.swift` if it conflicts with `ios/ContentView.swift`.
 
