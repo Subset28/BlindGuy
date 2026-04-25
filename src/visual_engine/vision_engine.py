@@ -8,6 +8,7 @@ from ultralytics import YOLO
 
 from .bbox_in_frame import bbox_area_fraction_inside_image
 from .config import VisualConfig
+from .distance_model import monocular_distance_m
 from .contracts import BBoxNorm, DetectedObject
 from .tracker import ObjectTracker
 
@@ -62,11 +63,19 @@ class VisionEngine:
                 y_center = (y1 + y2) / 2.0
 
                 pan_value = (x_center / frame_w - 0.5) * 2.0
-                known_height = float(self._config.known_heights_m.get(class_name, 1.7))
-                known_height = min(max(known_height, 0.05), 6.0)
-                safe_focal = min(max(float(self._config.focal_length_px), 100.0), 10000.0)
-                raw_distance = (known_height * safe_focal) / bbox_h
-                distance_m = round(min(max(raw_distance, 0.1), 60.0), 2)
+                w_norm = bbox_w / frame_w
+                h_norm = bbox_h / frame_h
+                distance_m = monocular_distance_m(
+                    class_name,
+                    self._config.known_heights_m,
+                    self._config.known_widths_m,
+                    self._config.focal_length_px,
+                    frame_w,
+                    frame_h,
+                    w_norm,
+                    h_norm,
+                    horizontal_fov_deg=self._config.horizontal_field_of_view_deg,
+                )
 
                 detections.append(
                     {

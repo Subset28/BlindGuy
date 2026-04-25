@@ -230,6 +230,7 @@ def apply_overrides(
     config: VisualConfig,
     confidence: float | None = None,
     focal_length_px: float | None = None,
+    horizontal_field_of_view_deg: float | None = None,
     emit_hz: float | None = None,
     camera_index: int | None = None,
 ) -> VisualConfig:
@@ -238,6 +239,8 @@ def apply_overrides(
         updated = replace(updated, confidence_threshold=confidence)
     if focal_length_px is not None:
         updated = replace(updated, focal_length_px=focal_length_px)
+    if horizontal_field_of_view_deg is not None:
+        updated = replace(updated, horizontal_field_of_view_deg=horizontal_field_of_view_deg)
     if emit_hz is not None:
         updated = replace(updated, emit_hz=emit_hz)
     if camera_index is not None:

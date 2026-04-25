@@ -42,7 +42,7 @@ public struct DistanceFrameSample: Sendable {
 }
 
 public protocol DistanceConfidenceAssessing: Sendable {
-    mutating func assess(_ sample: DistanceFrameSample, hasKnownHeight: Bool) -> DistanceAssessment
+    mutating func assess(_ sample: DistanceFrameSample, hasKnownPhysicalSize: Bool) -> DistanceAssessment
 }
 
 private struct DistanceHistory: Sendable {
@@ -59,7 +59,20 @@ public struct DistanceConfidenceAssessor: DistanceConfidenceAssessing, Sendable 
         self.alpha = alpha
     }
 
-    public mutating func assess(_ sample: DistanceFrameSample, hasKnownHeight: Bool) -> DistanceAssessment {
+    public mutating func assess(_ sample: DistanceFrameSample, hasKnownPhysicalSize: Bool) -> DistanceAssessment {
+        if !hasKnownPhysicalSize {
+            var hist = byID[sample.objectID] ?? DistanceHistory()
+            hist.previous = sample
+            byID[sample.objectID] = hist
+            return DistanceAssessment(meters: nil, confidence: .unavailable, wasDampened: false)
+        }
+        if abs(sample.rawDistanceM - MonocularDistance.unmeasurableMeters) < 0.25 {
+            var hist = byID[sample.objectID] ?? DistanceHistory()
+            hist.previous = sample
+            byID[sample.objectID] = hist
+            return DistanceAssessment(meters: nil, confidence: .unavailable, wasDampened: false)
+        }
+
         var hist = byID[sample.objectID] ?? DistanceHistory()
         let area = max(1e-6, sample.bbox.widthNorm * sample.bbox.heightNorm)
         hist.areaHistory.append(area)
@@ -73,34 +86,30 @@ public struct DistanceConfidenceAssessor: DistanceConfidenceAssessing, Sendable 
             return DistanceAssessment(meters: nil, confidence: .unavailable, wasDampened: false)
         }
 
+        let emaPrev = hist.smoothedDistance ?? sample.rawDistanceM
+        let jumpFromEMA = emaPrev > 1e-6
+            && sample.rawDistanceM.isFinite
+            && abs(sample.rawDistanceM - emaPrev) / emaPrev > 0.4
+        let newEMA = alpha * sample.rawDistanceM + (1.0 - alpha) * emaPrev
         var outDistance = sample.rawDistanceM
-        var dampened = false
+        if jumpFromEMA {
+            outDistance = newEMA
+        }
+        hist.smoothedDistance = newEMA
+
         var iouStable = false
         if let prev = hist.previous {
             let iou = iouNorm(prev.bbox, sample.bbox)
             iouStable = iou > 0.7
-            if prev.rawDistanceM > 1e-6 {
-                let jump = abs(sample.rawDistanceM - prev.rawDistanceM) / prev.rawDistanceM
-                if jump > 0.4 {
-                    let base = hist.smoothedDistance ?? prev.rawDistanceM
-                    outDistance = alpha * sample.rawDistanceM + (1.0 - alpha) * base
-                    dampened = true
-                    hist.smoothedDistance = outDistance
-                } else {
-                    hist.smoothedDistance = sample.rawDistanceM
-                }
-            }
-        } else {
-            hist.smoothedDistance = sample.rawDistanceM
         }
 
         let variance = areaVariance(hist.areaHistory)
         var conf: DistanceConfidence = .low
-        if dampened {
-            conf = .medium
-        } else if iouStable && hasKnownHeight && variance < 0.0012 {
+        if jumpFromEMA {
+            conf = .low
+        } else if iouStable && hasKnownPhysicalSize && variance < 0.0012 {
             conf = .high
-        } else if (iouStable && hasKnownHeight) || variance < 0.003 {
+        } else if (iouStable && hasKnownPhysicalSize) || variance < 0.003 {
             conf = .medium
         } else {
             conf = .low
@@ -111,7 +120,7 @@ public struct DistanceConfidenceAssessor: DistanceConfidenceAssessing, Sendable 
         return DistanceAssessment(
             meters: min(max(outDistance, 0.1), 60.0),
             confidence: conf,
-            wasDampened: dampened
+            wasDampened: jumpFromEMA
         )
     }
 
@@ -261,22 +270,57 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
     public init() {}
 
     public func phrase(objectClass: String, panValue: Double, distance: DistanceAssessment, units: String) -> String {
-        let base = "\(humanize(objectClass)) \(direction(panValue))"
-        switch distance.confidence {
-        case .high:
-            if let m = distance.meters { return "\(base), about \(unitsValue(meters: m, units: units))" }
+        let h = humanize(objectClass)
+        if distance.confidence == .unavailable {
+            return "\(h) detected"
+        }
+        let base = "\(h) \(direction(panValue))"
+        guard let m = distance.meters, m.isFinite,
+              let dPhrase = PhraseBuilder.phraseForDistance(
+                meters: m,
+                confidence: distance.confidence,
+                units: units
+              )
+        else {
             return base
-        case .medium:
-            if let m = distance.meters { return "\(base), roughly \(unitsValue(meters: m, units: units))" }
-            return base
-        case .low:
-            if let m = distance.meters {
-                if m <= 2.2 { return "\(base), nearby" }
-                return "\(base), farther ahead"
-            }
-            return base
+        }
+        return "\(base), \(dPhrase)"
+    }
+
+    /// All spoken distance phrasing (metric or imperial) must flow through here — do not build ad‑hoc distance strings in app code.
+    public static func phraseForDistance(
+        meters: Double,
+        confidence: DistanceConfidence,
+        units: String
+    ) -> String? {
+        let imperial = units.lowercased() == "imperial"
+        let d = min(max(0.01, meters), 60.0)
+        let feet = d * 3.28084
+        let ftRounded = max(1, Int(feet.rounded()))
+
+        switch confidence {
         case .unavailable:
-            return "\(humanize(objectClass)) detected"
+            return nil
+        case .low:
+            return d < 2.0 ? "nearby" : "farther ahead"
+        case .medium:
+            if imperial {
+                return "roughly \(ftRounded) feet"
+            }
+            let n = max(1, Int(d.rounded()))
+            return n == 1
+                ? "roughly 1 meter"
+                : "roughly \(n) meters"
+        case .high:
+            if imperial {
+                if d < 1.0 { return "less than 4 feet away" }
+                return "about \(ftRounded) feet away"
+            }
+            if d < 1.0 { return "less than one meter away" }
+            let n = max(1, Int(d.rounded()))
+            return n == 1
+                ? "about 1 meter away"
+                : "about \(n) meters away"
         }
     }
 
@@ -286,15 +330,6 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
         case 0.45...: return "to the right"
         default: return "ahead"
         }
-    }
-
-    private func unitsValue(meters: Double, units: String) -> String {
-        let m = min(max(0.1, meters), 60.0)
-        if units == "imperial" {
-            let feet = Int(round(m * 3.28084))
-            return "\(feet) feet"
-        }
-        return "\(Int(round(m))) meters"
     }
 
     private func humanize(_ raw: String) -> String {

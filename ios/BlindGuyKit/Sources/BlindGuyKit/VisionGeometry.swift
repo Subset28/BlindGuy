@@ -1,6 +1,17 @@
 import CoreGraphics
 import Foundation
 
+/// Sentinel distance when the pinhole model cannot be applied (e.g. no measurable bbox axis) — not spoken as a real range.
+public enum MonocularDistance: Sendable {
+    public static let unmeasurableMeters: Double = 99.0
+}
+
+public enum MonocularAxis: String, Sendable, Codable {
+    case height
+    case width
+    case mean
+}
+
 enum VisionGeometry {
     /// Convert Vision's normalized box (origin lower-left) to top-left / PRD-style normalized centers and sizes.
     static func prdBoxFromVisionBoundingBox(
@@ -21,7 +32,6 @@ enum VisionGeometry {
         return min(1, max(-1, v))
     }
 
-    /// Fraction of PRD bbox (origin top-left, y down) that lies in the unit square. Used to drop mostly off-screen detections.
     static func prdBboxVisibleAreaFraction(
         xCenter: Double,
         yCenter: Double,
@@ -43,30 +53,55 @@ enum VisionGeometry {
         return aIn / aBox
     }
 
-    static func monocularDistanceM(
-        className: String,
-        knownHeightsM: [String: Double],
-        focalLengthPx: Double,
-        bboxHeightPx: Double
-    ) -> Double {
-        let safeHeight = min(max(knownHeightsM[className] ?? 1.7, 0.05), 6.0)
-        let safeFocal = min(max(focalLengthPx, 100.0), 10_000.0)
-        let safeBoxHeight = min(max(bboxHeightPx, 1.0), 20_000.0)
-        let d = (safeHeight * safeFocal) / safeBoxHeight
-        let out = min(max(d, 0.1), 60.0)
-        #if DEBUG
-        if !d.isFinite || d < 0.05 || d > 1000 {
-            print(
-                "VisionGeometry distance diagnostic:",
-                "class=\(className)",
-                "hRef=\(safeHeight)",
-                "focal=\(safeFocal)",
-                "bboxH=\(safeBoxHeight)",
-                "raw=\(d)",
-                "clamped=\(out)"
-            )
+    /// Axis-aware pinhole distance using **real** horizontal/vertical focal lengths (pixels) from `CameraIntrinsics`.
+    public static func estimateMonocularDistanceM(
+        widthNorm: Double,
+        heightNorm: Double,
+        frameWidth: Int,
+        frameHeight: Int,
+        intrinsics: CameraIntrinsics,
+        knownHeightM: Double?,
+        knownWidthM: Double?
+    ) -> (meters: Double, axis: MonocularAxis) {
+        let fw = max(1, Double(frameWidth))
+        let fh = max(1, Double(frameHeight))
+        let bboxWpx = widthNorm * fw
+        let bboxHpx = heightNorm * fh
+        let fX = intrinsics.focalLengthXPx
+        let fY = intrinsics.focalLengthYPx
+        var parts: [(Double, MonocularAxis)] = []
+        if let h = knownHeightM, bboxHpx > 10 {
+            parts.append(((h * fY) / bboxHpx, .height))
         }
-        #endif
-        return (out * 100).rounded() / 100
+        if let w = knownWidthM, bboxWpx > 10 {
+            parts.append(((w * fX) / bboxWpx, .width))
+        }
+        guard !parts.isEmpty else {
+            return (.nan, .height)
+        }
+        if parts.count == 1, let p = parts.first {
+            return (applyOutputClamps(meters: p.0, widthNorm: widthNorm, heightNorm: heightNorm), p.1)
+        }
+        let dH = parts[0].0
+        let dW = parts[1].0
+        let raw: Double
+        let ax: MonocularAxis
+        if dH > 0, dW > 0, max(dH, dW) / min(dH, dW) < 2.0 {
+            raw = (dH * dW).squareRoot()
+            ax = .mean
+        } else {
+            raw = bboxWpx >= bboxHpx ? dW : dH
+            ax = bboxWpx >= bboxHpx ? .width : .height
+        }
+        let m = applyOutputClamps(meters: raw, widthNorm: widthNorm, heightNorm: heightNorm)
+        return (m, ax)
+    }
+
+    private static func applyOutputClamps(meters: Double, widthNorm: Double, heightNorm: Double) -> Double {
+        var m = min(max(meters, 0.3), 20.0)
+        if !m.isFinite { m = 0.3 }
+        let fills = widthNorm > 0.6 || heightNorm > 0.6
+        if fills { m = min(m, 0.5) }
+        return (m * 100).rounded() / 100
     }
 }

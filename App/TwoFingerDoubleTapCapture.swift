@@ -4,8 +4,10 @@ import UIKit
 struct TwoFingerDoubleTapCapture: UIViewRepresentable {
     var onDetected: () -> Void
 
-    /// UIKit view that lets one-finger scroll pass through, but still runs a 2-finger double-tap.
-    private final class MuteGestureHostView: UIView {
+    /// Not `private`: `UIViewRepresentable` needs `makeUIView` / `updateUIView` to use at least
+    /// `internal` types; a `private` nested class forces those methods to be `private`, which
+    /// does not match the protocol’s requirements.
+    final class MuteGestureHostView: UIView {
         override init(frame: CGRect) {
             super.init(frame: frame)
             isOpaque = false

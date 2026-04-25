@@ -1,13 +1,13 @@
 import Foundation
 
-/// Tuning aligned with `PRD.md` and Python `src/visual_engine/config.py`.
+/// Tuning for on-device YOLO + monocular range. **Distance:** iPhone only — `CameraIntrinsics` from `AVCaptureDevice`
+/// supplies focal lengths; there is no fixed `f` in this struct.
 public struct VisionConfiguration: Sendable {
     public var confidenceThreshold: Float
-    /// `intersection(bbox, image)) / area(bbox)` in PRD normalized coords. Drops mostly off-frame boxes.
     public var minBboxAreaFractionInFrame: Double
     public var targetClassNames: Set<String>
     public var knownHeightsM: [String: Double]
-    public var focalLengthPixels: Double
+    public var knownWidthsM: [String: Double]
     public var minEmitInterval: TimeInterval
     public var highPriorityDistanceM: Double
     public var enableLensCheck: Bool
@@ -27,32 +27,57 @@ public struct VisionConfiguration: Sendable {
             "stop sign", "bench",
         ]),
         knownHeightsM: [
-            "person": 1.7,
-            "car": 1.5,
-            "bicycle": 1.1,
-            "motorcycle": 1.3,
-            "truck": 3.5,
-            "bus": 3.2,
-            "dog": 0.6,
-            "cat": 0.3,
-            "chair": 0.9,
-            "couch": 0.9,
-            "dining table": 0.8,
-            "potted plant": 0.6,
-            "backpack": 0.5,
-            "handbag": 0.3,
-            "suitcase": 0.7,
+            "person": 1.70,
+            "car": 1.50,
+            "truck": 3.20,
+            "bus": 3.50,
+            "motorcycle": 1.20,
+            "bicycle": 1.10,
+            "dog": 0.50,
+            "cat": 0.30,
+            "chair": 0.90,
+            "couch": 0.90,
+            "dining table": 0.75,
+            "laptop": 0.24,
             "cell phone": 0.15,
-            "laptop": 0.3,
             "bottle": 0.25,
-            "cup": 0.15,
-            "umbrella": 1.0,
-            "traffic light": 1.0,
-            "fire hydrant": 0.8,
-            "stop sign": 0.8,
-            "bench": 0.9,
+            "cup": 0.12,
+            "backpack": 0.55,
+            "suitcase": 0.65,
+            "traffic light": 0.90,
+            "stop sign": 0.75,
+            "fire hydrant": 0.60,
+            "bench": 0.90,
+            "umbrella": 1.00,
+            "potted plant": 0.6,
+            "handbag": 0.3,
         ],
-        focalLengthPixels: 850,
+        knownWidthsM: [
+            "person": 0.50,
+            "car": 1.80,
+            "truck": 2.40,
+            "bus": 2.50,
+            "motorcycle": 1.00,
+            "bicycle": 1.70,
+            "couch": 1.80,
+            "dining table": 1.20,
+            "laptop": 0.32,
+            "dog": 0.60,
+            "cat": 0.40,
+            "bench": 1.50,
+            "suitcase": 0.45,
+            "chair": 0.55,
+            "potted plant": 0.45,
+            "backpack": 0.4,
+            "handbag": 0.4,
+            "cell phone": 0.08,
+            "bottle": 0.08,
+            "cup": 0.1,
+            "umbrella": 0.9,
+            "traffic light": 0.4,
+            "fire hydrant": 0.45,
+            "stop sign": 0.6,
+        ],
         minEmitInterval: 1.0 / 15.0,
         highPriorityDistanceM: 3.0,
         enableLensCheck: false,
@@ -67,7 +92,7 @@ public struct VisionConfiguration: Sendable {
         minBboxAreaFractionInFrame: Double = 0.7,
         targetClassNames: Set<String>,
         knownHeightsM: [String: Double],
-        focalLengthPixels: Double,
+        knownWidthsM: [String: Double]? = nil,
         minEmitInterval: TimeInterval,
         highPriorityDistanceM: Double,
         enableLensCheck: Bool = false,
@@ -80,7 +105,7 @@ public struct VisionConfiguration: Sendable {
         self.minBboxAreaFractionInFrame = minBboxAreaFractionInFrame
         self.targetClassNames = targetClassNames
         self.knownHeightsM = knownHeightsM
-        self.focalLengthPixels = focalLengthPixels
+        self.knownWidthsM = knownWidthsM ?? VisionConfiguration.default.knownWidthsM
         self.minEmitInterval = minEmitInterval
         self.highPriorityDistanceM = highPriorityDistanceM
         self.enableLensCheck = enableLensCheck
@@ -88,5 +113,19 @@ public struct VisionConfiguration: Sendable {
         self.lensWarnConsecutive = lensWarnConsecutive
         self.lensCheckMaxSide = lensCheckMaxSide
         self.lensAnnouncementText = lensAnnouncementText
+    }
+
+    public func knownHeightMeters(for className: String) -> Double? {
+        let k = className.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return knownHeightsM[k]
+    }
+
+    public func knownWidthMeters(for className: String) -> Double? {
+        let k = className.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return knownWidthsM[k]
+    }
+
+    public func hasKnownPhysicalSize(for className: String) -> Bool {
+        knownHeightMeters(for: className) != nil || knownWidthMeters(for: className) != nil
     }
 }

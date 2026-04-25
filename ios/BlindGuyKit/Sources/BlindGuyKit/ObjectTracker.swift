@@ -7,6 +7,7 @@ struct TrackState {
     var yCenterNorm: Double
     var distanceM: Double
     var updatedAt: TimeInterval
+    var lastSeenFrame: Int
 }
 
 /// Lightweight ID + velocity, aligned with Python `src/visual_engine/tracker.py`.
@@ -28,10 +29,15 @@ final class ObjectTracker {
         self.highPriorityDistanceM = highPriorityDistanceM
     }
 
+    /// - Parameter frameIndex: monotonically increasing index for this vision update (used to prune very stale id maps).
     func update(
         detections: [RawDetection],
-        now: TimeInterval
+        now: TimeInterval,
+        frameIndex: Int
     ) -> [TrackedDetection] {
+        if frameIndex % 60 == 0 {
+            pruneStaleObjects(currentFrame: frameIndex, maxAgeFrames: 90)
+        }
         expireOldTracks(now: now)
         var usedIds = Set<String>()
         var out: [TrackedDetection] = []
@@ -52,7 +58,8 @@ final class ObjectTracker {
                     xCenterNorm: d.xCenterNorm,
                     yCenterNorm: d.yCenterNorm,
                     distanceM: d.distanceM,
-                    updatedAt: now
+                    updatedAt: now,
+                    lastSeenFrame: frameIndex
                 )
                 out.append(
                     TrackedDetection(
@@ -66,7 +73,7 @@ final class ObjectTracker {
                         panValue: d.panValue,
                         objectId: m.objectId,
                         velocityMps: v,
-                        priority: d.distanceM < highPriorityDistanceM ? "HIGH" : "NORMAL"
+                        priority: (d.distanceM.isFinite && d.distanceM < highPriorityDistanceM) ? "HIGH" : "NORMAL"
                     )
                 )
             } else {
@@ -82,7 +89,7 @@ final class ObjectTracker {
                     panValue: d.panValue,
                     objectId: id,
                     velocityMps: 0,
-                    priority: d.distanceM < highPriorityDistanceM ? "HIGH" : "NORMAL"
+                    priority: (d.distanceM.isFinite && d.distanceM < highPriorityDistanceM) ? "HIGH" : "NORMAL"
                 )
                 usedIds.insert(id)
                 tracks[id] = TrackState(
@@ -91,7 +98,8 @@ final class ObjectTracker {
                     xCenterNorm: d.xCenterNorm,
                     yCenterNorm: d.yCenterNorm,
                     distanceM: d.distanceM,
-                    updatedAt: now
+                    updatedAt: now,
+                    lastSeenFrame: frameIndex
                 )
                 out.append(td)
             }
@@ -129,6 +137,19 @@ final class ObjectTracker {
         classCounters[className] = n
         return String(format: "%@_%03d", className, n)
     }
+
+    private func pruneStaleObjects(currentFrame: Int, maxAgeFrames: Int) {
+        let stale = tracks.filter { currentFrame - $0.value.lastSeenFrame > maxAgeFrames }
+        for e in stale {
+            tracks.removeValue(forKey: e.key)
+        }
+        if !stale.isEmpty, let onPrune = onStalePrune {
+            onPrune(stale.count)
+        }
+    }
+
+    /// Fires on the work queue when stale ids are removed.
+    var onStalePrune: ((Int) -> Void)?
 }
 
 struct RawDetection {

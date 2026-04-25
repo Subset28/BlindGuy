@@ -16,7 +16,13 @@ def parse_args() -> argparse.Namespace:
         "--focal-length-px",
         default=None,
         type=float,
-        help="Calibrated focal length in pixels for distance estimation.",
+        help="Override: single focal length in pixels (both axes). If omitted, HFOV is used.",
+    )
+    parser.add_argument(
+        "--hfov-deg",
+        default=None,
+        type=float,
+        help="Horizontal field of view in degrees (eval / webcam; default 63). Ignored if --focal-length-px is set.",
     )
     parser.add_argument("--emit-hz", default=None, type=float, help="Output payload frequency.")
     parser.add_argument(
@@ -33,6 +39,7 @@ def main() -> None:
         VisualConfig(),
         confidence=args.confidence,
         focal_length_px=args.focal_length_px,
+        horizontal_field_of_view_deg=args.hfov_deg,
         emit_hz=args.emit_hz,
         camera_index=args.camera_index,
     )

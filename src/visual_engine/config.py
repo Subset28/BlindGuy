@@ -59,7 +59,7 @@ class VisualConfig:
             "handbag": 0.3,
             "suitcase": 0.7,
             "cell phone": 0.15,
-            "laptop": 0.3,
+            "laptop": 0.24,
             "bottle": 0.25,
             "cup": 0.15,
             "umbrella": 1.0,
@@ -69,7 +69,38 @@ class VisualConfig:
             "bench": 0.9,
         }
     )
-    focal_length_px: float = 850.0
+    # Horizontal physical size (m) for width-dominated bboxes; matches BlindGuy `knownWidthsM`.
+    known_widths_m: dict[str, float] = field(
+        default_factory=lambda: {
+            "person": 0.5,
+            "car": 1.8,
+            "bicycle": 1.7,
+            "motorcycle": 1.0,
+            "truck": 2.4,
+            "bus": 2.5,
+            "dog": 0.8,
+            "cat": 0.45,
+            "chair": 0.55,
+            "couch": 1.6,
+            "dining table": 1.2,
+            "potted plant": 0.45,
+            "backpack": 0.4,
+            "handbag": 0.4,
+            "suitcase": 0.5,
+            "cell phone": 0.08,
+            "laptop": 0.32,
+            "bottle": 0.08,
+            "cup": 0.1,
+            "umbrella": 0.9,
+            "traffic light": 0.4,
+            "fire hydrant": 0.45,
+            "stop sign": 0.6,
+            "bench": 1.5,
+        }
+    )
+    # Eval / webcam: derive f_x, f_y from horizontal FOV (no device intrinsics). Optional override: single calibrated f in pixels.
+    horizontal_field_of_view_deg: float = 63.0
+    focal_length_px: float | None = None
     emit_hz: float = 15.0
     camera_index: int = 0
     frame_width: int = 640

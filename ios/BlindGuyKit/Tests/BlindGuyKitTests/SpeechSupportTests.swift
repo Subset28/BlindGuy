@@ -47,12 +47,44 @@ final class SpeechSupportTests: XCTestCase {
         XCTAssertLessThanOrEqual(s.currentDepth, 2)
     }
 
-    func testDistanceAssessorDampensLargeJumpToMedium() {
+    func testJumpDampening_EMA() {
         var a = DistanceConfidenceAssessor(alpha: 0.3)
         let b = BBoxNorm(xCenterNorm: 0.5, yCenterNorm: 0.5, widthNorm: 0.2, heightNorm: 0.3)
-        _ = a.assess(DistanceFrameSample(objectID: "p1", className: "person", bbox: b, rawDistanceM: 3.0, timestamp: Date()), hasKnownHeight: true)
-        let next = a.assess(DistanceFrameSample(objectID: "p1", className: "person", bbox: b, rawDistanceM: 6.0, timestamp: Date().addingTimeInterval(0.1)), hasKnownHeight: true)
-        XCTAssertEqual(next.confidence, .medium)
+        _ = a.assess(
+            DistanceFrameSample(objectID: "p1", className: "person", bbox: b, rawDistanceM: 1.0, timestamp: Date()),
+            hasKnownPhysicalSize: true
+        )
+        let next = a.assess(
+            DistanceFrameSample(
+                objectID: "p1",
+                className: "person",
+                bbox: b,
+                rawDistanceM: 3.0,
+                timestamp: Date().addingTimeInterval(0.1)
+            ),
+            hasKnownPhysicalSize: true
+        )
+        XCTAssertEqual(next.confidence, .low)
         XCTAssertTrue(next.wasDampened)
+        // EMA: 0.3 * 3 + 0.7 * 1 = 1.6
+        XCTAssertEqual(next.meters ?? 0, 1.6, accuracy: 0.01)
+    }
+
+    func testNoKnownSize_Unavailable() {
+        var a = DistanceConfidenceAssessor(alpha: 0.3)
+        let b = BBoxNorm(xCenterNorm: 0.5, yCenterNorm: 0.5, widthNorm: 0.1, heightNorm: 0.1)
+        let o = a.assess(
+            DistanceFrameSample(objectID: "s1", className: "scissors", bbox: b, rawDistanceM: 1.0, timestamp: Date()),
+            hasKnownPhysicalSize: false
+        )
+        XCTAssertEqual(o.confidence, .unavailable)
+        let phrase = PhraseBuilder().phrase(
+            objectClass: "scissors",
+            panValue: 0.0,
+            distance: o,
+            units: "metric"
+        )
+        XCTAssertTrue(phrase.contains("detected"))
+        XCTAssertFalse(phrase.contains("1 meter") || phrase.contains("meter"))
     }
 }

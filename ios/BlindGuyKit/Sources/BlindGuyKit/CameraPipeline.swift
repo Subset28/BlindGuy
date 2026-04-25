@@ -27,6 +27,8 @@ public final class CameraPipeline: NSObject, ObservableObject, AVCaptureVideoDat
     private let sessionQueue: DispatchQueue
     private let bufferQueue: DispatchQueue
     private var configured = false
+    private var captureDevice: AVCaptureDevice?
+    private var thermalStereoGuard: ThermalStereoGuard?
 
     @Published public private(set) var isRunning = false
 
@@ -44,7 +46,15 @@ public final class CameraPipeline: NSObject, ObservableObject, AVCaptureVideoDat
         // Keep camera delivery off the main queue; slightly higher QoS for smoother start under load.
         self.bufferQueue = DispatchQueue(label: "com.blindguy.capture.buffer", qos: .userInteractive)
         super.init()
+        let guardRef = ThermalStereoGuard()
+        guardRef.onShouldDisableStereo = { [weak self] in
+            self?.onThermalStereoShouldDisable?()
+        }
+        self.thermalStereoGuard = guardRef
     }
+
+    /// Future: tear down multi-cam stereo when thermal state is serious. Monocular capture is unchanged.
+    public var onThermalStereoShouldDisable: (() -> Void)?
 
     deinit {
         if session.isRunning {
@@ -128,6 +138,7 @@ public final class CameraPipeline: NSObject, ObservableObject, AVCaptureVideoDat
         }
 
         output.setSampleBufferDelegate(self, queue: bufferQueue)
+        self.captureDevice = device
         session.commitConfiguration()
     }
 
@@ -137,8 +148,17 @@ public final class CameraPipeline: NSObject, ObservableObject, AVCaptureVideoDat
         from _: AVCaptureConnection
     ) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        guard let device = captureDevice else { return }
         let o = imageOrientation
-        vision.ingest(pixelBuffer: pixelBuffer, orientation: o)
+        let w = CVPixelBufferGetWidth(pixelBuffer)
+        let h = CVPixelBufferGetHeight(pixelBuffer)
+        let intrinsics = CameraIntrinsicsReader.read(
+            device: device,
+            frameWidth: w,
+            frameHeight: h,
+            sampleBuffer: sampleBuffer
+        )
+        vision.ingest(pixelBuffer: pixelBuffer, orientation: o, intrinsics: intrinsics)
     }
 }
 

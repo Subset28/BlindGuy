@@ -48,7 +48,8 @@ public final class CoreMLDetector: @unchecked Sendable {
         from request: VNRequest,
         error: (any Error)?,
         imageWidth: Int,
-        imageHeight: Int
+        imageHeight: Int,
+        intrinsics: CameraIntrinsics
     ) -> [RawDetection] {
         if let error {
             #if DEBUG
@@ -79,13 +80,17 @@ public final class CoreMLDetector: @unchecked Sendable {
             )
             guard visFrac >= config.minBboxAreaFractionInFrame else { continue }
 
-            let hPx = max(1, h * Double(imageHeight))
-            let dist = VisionGeometry.monocularDistanceM(
-                className: t,
-                knownHeightsM: config.knownHeightsM,
-                focalLengthPx: config.focalLengthPixels,
-                bboxHeightPx: hPx
+            let (dRaw, _) = VisionGeometry.estimateMonocularDistanceM(
+                widthNorm: w,
+                heightNorm: h,
+                frameWidth: imageWidth,
+                frameHeight: imageHeight,
+                intrinsics: intrinsics,
+                knownHeightM: config.knownHeightMeters(for: t),
+                knownWidthM: config.knownWidthMeters(for: t)
             )
+            // Unmeasurable distance: keep finite sentinel so tracking priority does not treat "unknown" as 0m (high-priority).
+            let dist = dRaw.isFinite && dRaw > 0.05 ? dRaw : MonocularDistance.unmeasurableMeters
             let pan = VisionGeometry.panValue(xCenterNorm: xc)
             out.append(
                 RawDetection(

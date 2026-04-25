@@ -25,9 +25,10 @@ public final class BlindGuySession: ObservableObject {
     /// Called from the camera `AVCapture` buffer queue. Does not hop through `MainActor` (previous design scheduled every frame on main and caused UI hitches).
     nonisolated public func ingest(
         pixelBuffer: CVPixelBuffer,
-        orientation: CGImagePropertyOrientation
+        orientation: CGImagePropertyOrientation,
+        intrinsics: CameraIntrinsics? = nil
     ) {
-        engine.process(pixelBuffer: pixelBuffer, orientation: orientation) { [weak self] payload in
+        engine.process(pixelBuffer: pixelBuffer, orientation: orientation, intrinsics: intrinsics) { [weak self] payload in
             guard let self, let payload else { return }
             Task { @MainActor [weak self] in
                 guard let self else { return }

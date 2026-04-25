@@ -53,6 +53,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private var noDetectionsAnnouncedAt: Date?
     private var systemMessageKeys: Set<String> = []
     private var recentCriticalUtterances: [Date] = []
+    private var featureToggleDebounce: DispatchWorkItem?
 
     private let cooldownSameTrackSeconds: TimeInterval = 7.0
     private let cooldownSameSpatialCellSeconds: TimeInterval = 4.0
@@ -104,9 +105,16 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         if vision == nil { rewire() }
     }
 
+    /// Coalesces Settings UI churn (picker sends many `onChange` events) into one flush and avoids queue hammering.
     func applyFeatureTogglesFromUserDefaults() {
         workQueue.async { [weak self] in
-            self?.hardFlushSpeech(reason: "tts feature toggle changed")
+            guard let self else { return }
+            self.featureToggleDebounce?.cancel()
+            let w = DispatchWorkItem { [weak self] in
+                self?.hardFlushSpeech(reason: "tts feature toggle changed")
+            }
+            self.featureToggleDebounce = w
+            self.workQueue.asyncAfter(deadline: .now() + 0.25, execute: w)
         }
     }
 
@@ -179,10 +187,12 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         DispatchQueue.main.async {
             let s = AVAudioSession.sharedInstance()
             do {
+                // `defaultToSpeaker` is only valid with `.playAndRecord` — with `.playback` it returns paramErr -50
+                // and the session can stay misconfigured, which breaks TTS output.
                 try s.setCategory(
                     .playback,
                     mode: .spokenAudio,
-                    options: [.allowBluetoothA2DP, .allowBluetoothHFP, .mixWithOthers, .defaultToSpeaker]
+                    options: [.allowBluetoothA2DP, .allowBluetoothHFP, .mixWithOthers]
                 )
                 try s.setActive(true, options: [])
             } catch {
@@ -621,51 +631,38 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         return 1.0
     }
 
-    private func estimatedDistanceForSpeech(_ obj: DetectedObjectDTO) -> Double {
-        // Defensive clamp: speech never uses pathological values.
-        let modelDistance = min(max(0.1, obj.distanceM), 60.0)
-        let h = obj.bbox.heightNorm
-        let area = obj.bbox.widthNorm * obj.bbox.heightNorm
-        if h >= 0.72 || area >= 0.55 { return min(modelDistance, 0.35) }
-        if h >= 0.58 || area >= 0.40 { return min(modelDistance, 0.55) }
-        if h >= 0.42 || area >= 0.26 { return min(modelDistance, 0.9) }
-        return modelDistance
-    }
-
-    private func distancePhrase(for obj: DetectedObjectDTO) -> String {
-        distancePhrase(distanceM: estimatedDistanceForSpeech(obj))
-    }
-
-    private func distancePhrase(distanceM d: Double) -> String {
-        let m = min(max(0.1, d), 60.0)
-        let units = BlindGuyFeatureFlags.distanceUnits
-        if m < 0.6 {
-            return "very close"
-        }
-        if units == "imperial" {
-            let feet = m * 3.28084
-            if feet < 4.5 { return "about 4 feet" }
-            return "\(Int(round(feet))) feet"
-        }
-        if m < 1.4 { return "about 1 meter" }
-        return "\(Int(round(m))) meters"
-    }
-
-    /// Picks the calmest-sounding system voice: best available quality for `en-US`, then soft-name and gender tie-breakers.
+    /// Picks a voice for the current "Voice" setting. "Compact" prefers small on-device (default) voices, not the soothing sort.
     private func preferredVoice() -> AVSpeechSynthesisVoice? {
         let voices = AVSpeechSynthesisVoice.speechVoices().filter { $0.language.hasPrefix("en") }
         if voices.isEmpty { return AVSpeechSynthesisVoice(language: "en-US") }
-        let ranked = voices.sorted(by: compareVoicesForSoothing)
         switch BlindGuyFeatureFlags.ttsVoiceStyle {
+        case "compact":
+            return preferredVoiceCompact(from: voices)
         case "clear":
+            let ranked = voices.sorted(by: compareVoicesForSoothing)
             if let v = ranked.first(where: { $0.quality == .enhanced }) { return v }
             return ranked.first
-        case "compact":
-            if let v = ranked.first(where: { $0.quality == .default }) { return v }
-            return ranked.first
         default:
+            let ranked = voices.sorted(by: compareVoicesForSoothing)
             return ranked.first
         }
+    }
+
+    /// Smaller "compact" Siri-style voices: prefer lowest quality tier, then bundle ids containing "compact", then any en-US.
+    private func preferredVoiceCompact(from voices: [AVSpeechSynthesisVoice]) -> AVSpeechSynthesisVoice? {
+        let us = voices.filter { $0.language == "en-US" }
+        let pool = us.isEmpty ? voices : us
+        let sorted = pool.sorted { a, b in
+            if a.quality.rawValue != b.quality.rawValue { return a.quality.rawValue < b.quality.rawValue }
+            let ac = a.identifier.lowercased().contains("compact")
+            let bc = b.identifier.lowercased().contains("compact")
+            if ac != bc { return ac && !bc }
+            return a.name < b.name
+        }
+        if let v = sorted.first(where: { $0.quality == .default }) { return v }
+        if let v = sorted.first(where: { $0.identifier.lowercased().contains("compact") }) { return v }
+        if let v = sorted.first { return v }
+        return AVSpeechSynthesisVoice(language: "en-US")
     }
 
     private func voiceLanguageRank(_ lang: String) -> Int {
@@ -695,7 +692,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     }
 
     private func phraseForObject(_ obj: DetectedObjectDTO, includeDistance: Bool) -> String {
-        let hasKnownHeight = VisionConfiguration.default.knownHeightsM[obj.objectClass.lowercased()] != nil
+        let hasKnownPhysical = VisionConfiguration.default.hasKnownPhysicalSize(for: obj.objectClass)
         let sample = DistanceFrameSample(
             objectID: obj.objectId,
             className: obj.objectClass.lowercased(),
@@ -703,7 +700,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             rawDistanceM: obj.distanceM,
             timestamp: Date()
         )
-        let assessment = distanceAssessor.assess(sample, hasKnownHeight: hasKnownHeight)
+        let assessment = distanceAssessor.assess(sample, hasKnownPhysicalSize: hasKnownPhysical)
         if assessment.wasDampened {
             telemetryDrop(.distanceClamp, utterance: "distance-clamp:\(obj.objectId)")
         }
