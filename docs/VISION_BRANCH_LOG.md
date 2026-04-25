@@ -1,8 +1,20 @@
 # Visual branch — engineering log
 
-This file is **append-only** (add new entries at the **top** under the date). It records work that belongs to the **`Visual` branch**: on-device / reference **vision pipeline**, **JSON contract**, **Python bridge**, **tests**, and **PRD/docs** updates that describe vision only. **Audio** and **UI/UX** app code should log in their own docs if needed.
+This file is **append-only** (add new entries at the **top**). It records work on the **`Visual` branch**: on-device / reference **vision pipeline**, **JSON contract**, **Python bridge**, **tests**, and **PRD/docs** that describe vision only. **Audio** and **UI/UX** app code may keep their own logs; anything that **changes the vision contract or `BlindGuyKit` API** still belongs here.
 
-**How to use:** when you ship a PR to `Visual` (or merge vision-related changes), add a short bullet under today’s date: what changed, which paths, and why.
+**How to use (continual, not end-of-sprint only):** After **each** **Visual**-scoped change, append **before** you push or open the PR: a short bullet under **today’s** `## YYYY-MM-DD` (start a new day section at the top when the calendar day changes). **Same commit** as the code is ideal. One bullet can cover a focused diff; for large work, a few bullets is fine. **Humans and coding agents** both follow this so judges and partners always see a fresh trail.
+
+| Cadence | Action |
+|--------|--------|
+| **Every** vision PR / direct push to `Visual` | At least one new log bullet |
+| New calendar day | New `## YYYY-MM-DD` block **above** older days |
+| Contract or `FramePayload` change | Log entry + **PRD** / `contract.example.json` (see **PRD** maintenance) |
+
+---
+
+## 2026-04-27
+
+- **Process — continual logging:** Strengthened instructions in this file, **PRD** maintenance, and **README** so the log is **appended to on every** **Visual**-scoped change, not only at release. Replaces ad-hoc “ship day” only updates.
 
 ---
 

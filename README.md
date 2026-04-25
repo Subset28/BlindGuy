@@ -67,7 +67,7 @@ PYTHONPATH=src python -m visual_engine.calibration \
 
 See `docs/visual-integration.md` for the JSON contract and bridge notes.
 
-**Visual branch changelog (append-only):** `docs/VISION_BRANCH_LOG.md` — add a dated entry whenever you merge vision contract or pipeline changes.
+**Visual branch changelog (append-only):** `docs/VISION_BRANCH_LOG.md` — **append a bullet on every** **Visual**-scoped change (same commit as the code when possible; see the log’s header for day blocks). Do not defer logging to “release day” only.
 
 ### 6) iPhone / SwiftUI (on-device vision)
 

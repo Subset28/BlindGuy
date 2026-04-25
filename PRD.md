@@ -2,9 +2,9 @@
 **Academies Hacks 2026 | Theme: CLONING**
 **Prepared by:** Senior Technical Product Manager
 **Deadline:** 24 Hours | **Team Size:** 3 Developers
-**Version:** 1.2 — COMPETITION DRAFT (as-built: Visual + iOS kit + tests + lens health)
+**Version:** 1.2.1 — COMPETITION DRAFT (as-built: Visual + iOS kit + tests + lens health; `VISION_BRANCH_LOG` continual-updates policy)
 
-> **PRD maintenance (engineering):** When behavior or the JSON contract changes, update **§4**, **§4.1**, and **§4.2** in this file, bump the **Version** line (minor for contract/tooling, patch for typos), and keep **`docs/contract.example.json`**, **`README.md`**, and **`docs/visual-integration.md`** in sync. Append a dated line to **`docs/VISION_BRANCH_LOG.md`** for every **Visual**-scoped change. This file is the single narrative source for judges + teammates; the repo is the source of truth for exact flags and filenames.
+> **PRD maintenance (engineering):** When behavior or the JSON contract changes, update **§4**, **§4.1**, and **§4.2** in this file, bump the **Version** line (minor for contract/tooling, patch for typos), and keep **`docs/contract.example.json`**, **`README.md`**, and **`docs/visual-integration.md`** in sync. **Continually** append to **`docs/VISION_BRANCH_LOG.md`**—a short bullet in the same commit for **each** **Visual**-scoped change (not only at the end of a sprint). This file is the single narrative source for judges + teammates; the repo is the source of truth for exact flags and filenames.
 
 **Ship target (this team):** **iPhone (iOS)** on the user’s body (lanyard or chest mount), with **AirPods Pro** for spatial output. The phone is the camera and the runtime for **Swift** (UI/UX + Audio). Vision ML is **YOLOv8n**; production inference is **on-device** (see Edge Processing). A **local Python bridge** in this repo is for integration and dev only (see below).
 
