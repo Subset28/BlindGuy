@@ -3,6 +3,9 @@ import Foundation
 import ImageIO
 import QuartzCore
 import Vision
+#if canImport(ARKit)
+import ARKit
+#endif
 
 /// Runs YOLO (CoreML) on-device, maps to PRD `FramePayload`, with drops + ~15Hz emit cap.
 public final class OnDeviceVisionEngine: @unchecked Sendable {
@@ -12,6 +15,7 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
     private let workQueue: DispatchQueue
     private let stateLock = NSLock()
     private var frameId: Int = 0
+    private var inFlight: Bool = false
     private var lastEmitTime: TimeInterval = 0
     private let inferenceGate = FrameGate()
     private let lensState = LensStreakState()
@@ -53,6 +57,7 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
         pixelBuffer: CVPixelBuffer,
         orientation: CGImagePropertyOrientation,
         intrinsics: CameraIntrinsics? = nil,
+        arFrame: Any? = nil,
         completion: @escaping (FramePayload?) -> Void
     ) {
         workQueue.async { [weak self] in
@@ -60,15 +65,19 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
                 pixelBuffer: pixelBuffer,
                 orientation: orientation,
                 intrinsics: intrinsics,
+                arFrame: arFrame,
                 completion: completion
             )
         }
     }
 
+    private var consecutiveLidarFallbacks: [String: Int] = [:]
+
     private func processOnWorkQueue(
         pixelBuffer: CVPixelBuffer,
         orientation: CGImagePropertyOrientation,
         intrinsics: CameraIntrinsics?,
+        arFrame: Any?,
         completion: @escaping (FramePayload?) -> Void
     ) {
         let captured = pixelBuffer
@@ -104,7 +113,6 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
             guard let self else { return }
             self.stateLock.lock()
             defer { self.inFlight = false; self.stateLock.unlock() }
-
             let raw = self.detector.buildObservations(
                 from: request,
                 error: err,
@@ -113,14 +121,43 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
                 intrinsics: merged
             )
             let t1 = CACurrentMediaTime()
-            let mapped = self.tracker.update(detections: raw, now: t1)
+            // increment frame index BEFORE update so tracker can prune using the index
             self.frameId += 1
+            let fid = self.frameId
+            let mapped = self.tracker.update(detections: raw, now: t1, frameIndex: fid)
             self.lastEmitTime = t1
             let visionMs = max(0, min(1_000_000, Int((t1 - t0) * 1000)))
-            let fid = self.frameId
 
             var dtos: [DetectedObjectDTO] = []
+            let capability = detectDepthCapability()
             for o in mapped {
+                var distanceM = o.distanceM
+                var distanceConf: DistanceConfidence? = nil
+
+                #if canImport(ARKit)
+                if capability == .lidar, let frame = arFrame as? ARFrame {
+                    // convert center-based bbox to top-left normalized rect
+                    let minX = o.xCenterNorm - 0.5 * o.widthNorm
+                    let minY = o.yCenterNorm - 0.5 * o.heightNorm
+                    let bboxRect = CGRect(x: minX, y: minY, width: o.widthNorm, height: o.heightNorm)
+                    let sample = sampleDepth(from: frame, bbox: bboxRect)
+                    if sample.isValid {
+                        distanceM = Double(sample.distanceM)
+                        distanceConf = sample.distanceConfidence
+                        // reset consecutive fallback counter
+                        consecutiveLidarFallbacks[o.objectId] = 0
+                    } else {
+                        // LiDAR invalid — fall back to monocular but force low confidence and log
+                        distanceConf = .low
+                        consecutiveLidarFallbacks[o.objectId, default: 0] += 1
+                        TelemetryRecorder.shared.record("lidar_fallback", objectID: o.objectId, className: o.className)
+                        if consecutiveLidarFallbacks[o.objectId]! >= 5 {
+                            TelemetryRecorder.shared.record("lidar_persistent_failure", objectID: o.objectId, className: o.className)
+                        }
+                    }
+                }
+                #endif
+
                 dtos.append(
                     DetectedObjectDTO(
                         objectId: o.objectId,
@@ -132,7 +169,8 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
                             widthNorm: o.widthNorm,
                             heightNorm: o.heightNorm
                         ),
-                        distanceM: o.distanceM,
+                        distanceM: distanceM,
+                        distanceConfidence: distanceConf,
                         panValue: o.panValue,
                         velocityMps: (o.velocityMps * 100).rounded() / 100,
                         priority: o.priority

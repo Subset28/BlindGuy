@@ -297,7 +297,6 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
         let d = min(max(0.01, meters), 60.0)
         let feet = d * 3.28084
         let ftRounded = max(1, Int(feet.rounded()))
-
         switch confidence {
         case .unavailable:
             return nil
@@ -316,11 +315,22 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
                 if d < 1.0 { return "less than 4 feet away" }
                 return "about \(ftRounded) feet away"
             }
-            if d < 1.0 { return "less than one meter away" }
-            let n = max(1, Int(d.rounded()))
-            return n == 1
-                ? "about 1 meter away"
-                : "about \(n) meters away"
+            // LiDAR-quality: speak to one decimal for < 3m, whole meters beyond
+            if d < 1.0 {
+                return "less than one meter away"
+            } else if d < 3.0 {
+                let tenths = (d * 10).rounded() / 10
+                var s = String(format: "%.1f", tenths)
+                if s.hasSuffix(".0") {
+                    s = String(s.dropLast(2))
+                }
+                return "about \(s) meters away"
+            } else {
+                let rounded = Int(d.rounded())
+                return rounded == 1
+                    ? "about 1 meter away"
+                    : "about \(rounded) meters away"
+            }
         }
     }
 

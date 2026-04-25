@@ -124,6 +124,31 @@ extension AVCaptureDevice.DeviceType {
 }
 #endif
 
+#if canImport(ARKit)
+import ARKit
+
+@available(iOS 13.0, *)
+extension CameraIntrinsicsReader {
+    public static func read(from arCamera: ARCamera) -> CameraIntrinsics {
+        let w = Int(arCamera.imageResolution.width)
+        let h = Int(arCamera.imageResolution.height)
+        let k = arCamera.intrinsics
+        let fx = Double(k.columns.0.x)
+        let fy = Double(k.columns.1.y)
+        let hFov = 2.0 * atan(Double(w) / (2.0 * max(fx, 0.0001))) * 180.0 / .pi
+        return CameraIntrinsics(
+            focalLengthXPx: min(max(fx, 10), 20_000),
+            focalLengthYPx: min(max(fy, 10), 20_000),
+            frameWidth: w,
+            frameHeight: h,
+            lensFactor: 1.0,
+            horizontalFieldOfViewDegrees: hFov,
+            didUseSampleBufferMatrix: true
+        )
+    }
+}
+#endif
+
 #if os(iOS)
 extension AVCaptureDevice {
     public var deviceTypeLensFactor: Double { deviceType.lensFactor }

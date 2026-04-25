@@ -700,7 +700,13 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             rawDistanceM: obj.distanceM,
             timestamp: Date()
         )
-        let assessment = distanceAssessor.assess(sample, hasKnownPhysicalSize: hasKnownPhysical)
+        // If the vision pipeline supplied an explicit distance confidence (LiDAR hint), prefer it.
+        let assessment: DistanceAssessment
+        if let forced = obj.distanceConfidence {
+            assessment = DistanceAssessment(meters: sample.rawDistanceM.isFinite ? sample.rawDistanceM : nil, confidence: forced, wasDampened: false)
+        } else {
+            assessment = distanceAssessor.assess(sample, hasKnownPhysicalSize: hasKnownPhysical)
+        }
         if assessment.wasDampened {
             telemetryDrop(.distanceClamp, utterance: "distance-clamp:\(obj.objectId)")
         }

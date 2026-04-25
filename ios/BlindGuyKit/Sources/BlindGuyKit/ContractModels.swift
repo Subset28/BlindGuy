@@ -34,6 +34,7 @@ public struct DetectedObjectDTO: Codable, Equatable, Sendable {
     public var confidence: Double
     public var bbox: BBoxNorm
     public var distanceM: Double
+    public var distanceConfidence: DistanceConfidence?
     public var panValue: Double
     public var velocityMps: Double
     public var priority: String
@@ -44,6 +45,7 @@ public struct DetectedObjectDTO: Codable, Equatable, Sendable {
         case confidence
         case bbox
         case distanceM = "distance_m"
+        case distanceConfidence = "distance_confidence"
         case panValue = "pan_value"
         case velocityMps = "velocity_mps"
         case priority
