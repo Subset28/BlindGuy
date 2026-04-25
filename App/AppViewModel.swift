@@ -56,6 +56,7 @@ final class AppViewModel: ObservableObject {
         guard on else {
             camera?.stop()
             camera = nil
+            session?.clearPayload()
             HapticManager.shared.triggerDiscovery()
             return
         }

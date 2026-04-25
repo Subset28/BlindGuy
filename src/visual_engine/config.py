@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 @dataclass(slots=True)
 class VisualConfig:
     model_path: str = "yolov8n.pt"
-    confidence_threshold: float = 0.62
+    confidence_threshold: float = 0.58
     target_classes: set[str] = field(
-        default_factory=lambda: {"person", "car", "bicycle", "motorcycle", "truck", "bus"}
+        default_factory=lambda: {"person", "car", "bicycle", "motorcycle", "truck", "bus", "dog", "cat", "chair", "couch", "dining table", "potted plant", "backpack", "handbag", "suitcase", "cell phone", "laptop", "bottle", "cup", "umbrella", "traffic light", "fire hydrant", "stop sign", "bench"}
     )
     known_heights_m: dict[str, float] = field(
         default_factory=lambda: {
@@ -16,6 +16,24 @@ class VisualConfig:
             "motorcycle": 1.3,
             "truck": 3.5,
             "bus": 3.2,
+            "dog": 0.6,
+            "cat": 0.3,
+            "chair": 0.9,
+            "couch": 0.9,
+            "dining table": 0.8,
+            "potted plant": 0.6,
+            "backpack": 0.5,
+            "handbag": 0.3,
+            "suitcase": 0.7,
+            "cell phone": 0.15,
+            "laptop": 0.3,
+            "bottle": 0.25,
+            "cup": 0.15,
+            "umbrella": 1.0,
+            "traffic light": 1.0,
+            "fire hydrant": 0.8,
+            "stop sign": 0.8,
+            "bench": 0.9,
         }
     )
     focal_length_px: float = 850.0

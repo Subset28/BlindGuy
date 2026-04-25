@@ -19,13 +19,20 @@ final class HearingEngine: ObservableObject {
     private let speechSynth = AVSpeechSynthesizer()
     private var lastSpokenByObjectId: [String: Date] = [:]
     private var lastSpokenBySpatialKey: [String: Date] = [:]
+    private var lastSpokenByClass: [String: Date] = [:]
     private var lastSpeechAt: Date?
     /// Same physical object should not re-announce every frame; also enforced via spatial grid when `object_id` jitters.
     private let cooldownSameTrackSeconds: TimeInterval = 6.0
     private let cooldownSameSpatialCellSeconds: TimeInterval = 5.0
     /// Prevents TTS from queueing dozens of lines in one runloop tick.
     private let minIntervalAnySpeechSeconds: TimeInterval = 0.55
+    /// Prevent one class ("person") from dominating every line.
+    private let cooldownSameClassSeconds: TimeInterval = 3.5
     private let maxNameAnnouncementsPerFrame: Int = 1
+    private var lastPeopleGroupSpokenAt: Date?
+    private let peopleGroupCooldownSeconds: TimeInterval = 7.5
+    /// Used to notice “crowd is gone / camera panned away” and drop the TTS backlog (`AVSpeechSynthesizer` queues every line).
+    private var lastSpokenObjectCount: Int = 0
 
     private let workQueue = DispatchQueue(label: "com.blindguy.hearing.work", qos: .userInitiated)
     private var lastFrame: FramePayload?
@@ -79,6 +86,9 @@ final class HearingEngine: ObservableObject {
             workQueue.async { [weak self] in
                 self?.lastSpokenByObjectId.removeAll()
                 self?.lastSpokenBySpatialKey.removeAll()
+                self?.lastSpokenByClass.removeAll()
+                self?.lastSpokenObjectCount = 0
+                self?.lastPeopleGroupSpokenAt = nil
             }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
@@ -231,12 +241,25 @@ final class HearingEngine: ObservableObject {
             .filter { $0.confidence >= Self.minConfidenceForSpeech }
             .sorted { Self.interestScore($0) > Self.interestScore($1) }
 
+        if shouldFlushTTSForSceneChange(newCount: pool.count) {
+            flushTTSForSceneReset(reason: "scene cleared or thinned")
+        }
+
         if announceEach {
-            var n = 0
-            for obj in pool {
-                if n >= maxNameAnnouncementsPerFrame { break }
-                if trySpeakObjectNameIfAllowed(obj: obj, includeDistance: includeDistance) {
-                    n += 1
+            var announced = false
+            if let topNonPerson = pool.first(where: { !Self.isPersonLikeClass($0.objectClass) }) {
+                announced = trySpeakObjectNameIfAllowed(obj: topNonPerson, includeDistance: includeDistance)
+            }
+            if !announced {
+                announced = trySpeakPeopleGroupIfNeeded(from: pool, includeDistance: includeDistance)
+            }
+            if !announced {
+                var n = 0
+                for obj in pool {
+                    if n >= maxNameAnnouncementsPerFrame { break }
+                    if trySpeakObjectNameIfAllowed(obj: obj, includeDistance: includeDistance) {
+                        n += 1
+                    }
                 }
             }
         } else {
@@ -252,23 +275,48 @@ final class HearingEngine: ObservableObject {
             o.distanceM < 3.0 && abs(o.velocityMps) > 1.5
         }
         lastFrame = frame
+        lastSpokenObjectCount = pool.count
         DispatchQueue.main.async { [weak self] in
             self?.objectCount = frame.objects.count
             self?.alertActive = alert
         }
     }
 
+    /// True when the visible set of confident objects suddenly disappears or shrinks a lot (pan away, look at floor, etc.).
+    private func shouldFlushTTSForSceneChange(newCount: Int) -> Bool {
+        let prev = lastSpokenObjectCount
+        if newCount == 0, prev > 0 { return true }
+        if prev >= 10, newCount <= 1 { return true }
+        if prev - newCount >= 6, newCount * 2 < prev { return true }
+        return false
+    }
+
+    /// Stop all queued TTS and forget dedupe state so we do not keep naming people who are no longer in frame.
+    private func flushTTSForSceneReset(reason: String) {
+        lastSpokenByObjectId.removeAll()
+        lastSpokenBySpatialKey.removeAll()
+        lastSpokenByClass.removeAll()
+        lastSpeechAt = nil
+        lastPeopleGroupSpokenAt = nil
+        #if DEBUG
+        print("Hearing: TTS flush (\(reason))")
+        #endif
+        DispatchQueue.main.async { [weak self] in
+            self?.speechSynth.stopSpeaking(at: .immediate)
+        }
+    }
+
     /// **Class** + optional **distance**; returns `true` if a line was queued.
     private func trySpeakObjectNameIfAllowed(obj: DetectedObjectDTO, includeDistance: Bool) -> Bool {
         let now = Date()
-        if !passesGlobalAndDedupeGates(obj: obj, now: now, useSpatialGrid: true) { return false }
+        if !passesGlobalAndDedupeGates(obj: obj, now: now, useSpatialGrid: true, checkClassCooldown: true) { return false }
         let name = Self.humanizeClassName(obj.objectClass)
+        let dir = directionPhrase(pan: obj.panValue)
         let phrase: String
         if includeDistance {
-            let m = max(0, Int(round(obj.distanceM)))
-            phrase = "\(name), \(m) meters"
+            phrase = "\(name) \(dir), \(distancePhrase(for: obj))"
         } else {
-            phrase = name
+            phrase = "\(name) \(dir)"
         }
         markSpoken(obj: obj, now: now)
         enqueueSpeech(phrase, at: now)
@@ -279,11 +327,34 @@ final class HearingEngine: ObservableObject {
     private func trySpeakPriorityObjectIfAllowed(obj: DetectedObjectDTO) -> Bool {
         if !BlindGuyFeatureFlags.hearingTTS { return false }
         let now = Date()
-        if !passesGlobalAndDedupeGates(obj: obj, now: now, useSpatialGrid: true) { return false }
-        let m = Int(round(obj.distanceM))
+        if !passesGlobalAndDedupeGates(obj: obj, now: now, useSpatialGrid: true, checkClassCooldown: false) { return false }
         let name = Self.humanizeClassName(obj.objectClass)
-        let phrase = "\(name), \(m) meters away"
+        let dir = directionPhrase(pan: obj.panValue)
+        let phrase = "\(name) \(dir), \(distancePhrase(for: obj)) away"
         markSpoken(obj: obj, now: now)
+        enqueueSpeech(phrase, at: now)
+        return true
+    }
+
+    /// For crowded scenes, summarize people instead of naming each one.
+    private func trySpeakPeopleGroupIfNeeded(from pool: [DetectedObjectDTO], includeDistance: Bool) -> Bool {
+        let people = pool.filter { Self.isPersonLikeClass($0.objectClass) }
+        guard people.count >= 3 else { return false }
+        let now = Date()
+        if let t = lastSpeechAt, now.timeIntervalSince(t) < minIntervalAnySpeechSeconds { return false }
+        if let t = lastPeopleGroupSpokenAt, now.timeIntervalSince(t) < peopleGroupCooldownSeconds { return false }
+        let nearest = people.map { estimatedDistanceForSpeech($0) }.min() ?? 0
+        let avgPan = people.map(\.panValue).reduce(0, +) / Double(people.count)
+        let dir = directionPhrase(pan: avgPan)
+        let phrase: String
+        if includeDistance {
+            phrase = "People \(dir), nearest \(distancePhrase(distanceM: nearest))"
+        } else {
+            phrase = "People \(dir)"
+        }
+        lastPeopleGroupSpokenAt = now
+        lastSpeechAt = now
+        lastSpokenByClass["person"] = now
         enqueueSpeech(phrase, at: now)
         return true
     }
@@ -291,11 +362,18 @@ final class HearingEngine: ObservableObject {
     private func passesGlobalAndDedupeGates(
         obj: DetectedObjectDTO,
         now: Date,
-        useSpatialGrid: Bool
+        useSpatialGrid: Bool,
+        checkClassCooldown: Bool
     ) -> Bool {
         if let t = lastSpeechAt, now.timeIntervalSince(t) < minIntervalAnySpeechSeconds { return false }
         if let last = lastSpokenByObjectId[obj.objectId], now.timeIntervalSince(last) < cooldownSameTrackSeconds {
             return false
+        }
+        if checkClassCooldown {
+            let k = obj.objectClass.lowercased()
+            if let last = lastSpokenByClass[k], now.timeIntervalSince(last) < cooldownSameClassSeconds {
+                return false
+            }
         }
         if useSpatialGrid {
             let k = Self.spatialDedupeKey(obj: obj)
@@ -309,6 +387,7 @@ final class HearingEngine: ObservableObject {
     private func markSpoken(obj: DetectedObjectDTO, now: Date) {
         lastSpokenByObjectId[obj.objectId] = now
         lastSpokenBySpatialKey[Self.spatialDedupeKey(obj: obj)] = now
+        lastSpokenByClass[obj.objectClass.lowercased()] = now
     }
 
     private static func spatialDedupeKey(obj: DetectedObjectDTO) -> String {
@@ -323,21 +402,58 @@ final class HearingEngine: ObservableObject {
         let d = max(0.1, o.distanceM)
         let pri = o.priority.uppercased() == "HIGH" ? 1.5 : 1.0
         let w = classImportance(o.objectClass)
-        return w * pri * (1.0 / d) * (0.55 + 0.45 * min(1.0, o.confidence))
+        let centerBias = max(0.45, 1.35 - abs(o.panValue))
+        return w * pri * centerBias * (1.0 / d) * (0.55 + 0.45 * min(1.0, o.confidence))
     }
 
     private static func classImportance(_ raw: String) -> Double {
         let t = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if t == "truck" || t == "bus" || t == "car" { return 3.0 }
-        if t == "person" { return 1.5 }
+        if t == "chair" || t == "couch" || t == "bench" { return 2.7 }
+        if t == "person" { return 0.9 }
         if t == "bicycle" || t == "motorcycle" { return 1.2 }
         return 1.0
+    }
+
+    private static func isPersonLikeClass(_ raw: String) -> Bool {
+        raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "person"
+    }
+
+    /// Blend model distance with near-field visual occupancy. If a box is huge in frame, we treat it as close.
+    private func estimatedDistanceForSpeech(_ obj: DetectedObjectDTO) -> Double {
+        let modelDistance = max(0.1, obj.distanceM)
+        let h = obj.bbox.heightNorm
+        let area = obj.bbox.widthNorm * obj.bbox.heightNorm
+        if h >= 0.72 || area >= 0.55 { return min(modelDistance, 0.35) }
+        if h >= 0.58 || area >= 0.40 { return min(modelDistance, 0.55) }
+        if h >= 0.42 || area >= 0.26 { return min(modelDistance, 0.9) }
+        return modelDistance
+    }
+
+    private func distancePhrase(for obj: DetectedObjectDTO) -> String {
+        distancePhrase(distanceM: estimatedDistanceForSpeech(obj))
+    }
+
+    private func distancePhrase(distanceM d: Double) -> String {
+        let m = max(0.1, d)
+        if m < 0.6 { return "very close" }
+        if m < 1.4 { return "about 1 meter" }
+        return "\(Int(round(m))) meters"
+    }
+
+    private func directionPhrase(pan: Double) -> String {
+        switch pan {
+        case ..<(-0.45): return "to the left"
+        case 0.45...: return "to the right"
+        default: return "straight ahead"
+        }
     }
 
     private func pruneStaleSpeechHistory(now: Date) {
         let cap: TimeInterval = 45
         lastSpokenByObjectId = lastSpokenByObjectId.filter { now.timeIntervalSince($0.value) < cap }
         lastSpokenBySpatialKey = lastSpokenBySpatialKey.filter { now.timeIntervalSince($0.value) < cap }
+        lastSpokenByClass = lastSpokenByClass.filter { now.timeIntervalSince($0.value) < cap }
     }
 
     private func enqueueSpeech(_ phrase: String, at now: Date) {

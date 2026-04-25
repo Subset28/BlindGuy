@@ -37,4 +37,8 @@ public final class BlindGuySession: ObservableObject {
     public func resetTracking() {
         engine.resetTracker()
     }
+
+    public func clearPayload() {
+        lastPayload = nil
+    }
 }
