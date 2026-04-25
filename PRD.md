@@ -11,22 +11,22 @@
 
 ---
 
-## 🚀 The Winning Code Stack
+## 🚀 The Winning Code Stack (iOS Edition)
 
-To achieve sub-100ms latency and "utter beauty," we are utilizing a high-performance hybrid stack:
+To achieve sub-100ms latency and "utter beauty" on Apple hardware, we are utilizing the following native stack:
 
 ### **Mobile (The Sensor & Output)**
-- **Language**: **Java (Android Native)**. We need direct access to the `Camera2` API and high-priority `AudioTrack` threads to minimize hardware-to-software latency.
-- **Spatial Audio**: **Resonance Audio SDK**. This provides the HRTF (Head-Related Transfer Function) simulation needed to make the "Audio Clones" feel three-dimensional.
+- **Language**: **Swift / SwiftUI**. We will use `AVFoundation` for high-speed camera frame capture and `Combine` for low-latency data binding between the Vision and Audio engines.
+- **Spatial Audio**: **AVAudioEnvironmentNode**. This is Apple's native HRTF engine. It provides the most realistic 3D soundscape for AirPods Pro users, including head-tracking support.
 
 ### **AI Engine (The Vision)**
 - **Model**: **YOLOv8 (Nano)**.
-- **Inference**: **TensorFlow Lite (TFLite)** with **GPU Delegate**. The model will be quantized to **INT8** to run entirely on the mobile NPU/GPU, bypassing the CPU to keep frames-per-second high.
+- **Inference**: **CoreML**. We will export the model to an `.mlpackage` to leverage the **Apple Neural Engine (ANE)**. This ensures that object detection happens in real-time without draining the battery or heating up the device.
 
 ### **Cloud & Dashboard (The Judge Experience)**
-- **Backend**: **Python (FastAPI)**. Fast, asynchronous, and perfect for handling the telemetry bridge.
-- **Hosting**: **Google Cloud Platform (GCP) Cloud Run**. Scalable, low-latency container hosting.
-- **Real-time Sync**: **Firebase Realtime Database**. This acts as the "Bridge" to mirror the mobile device's auditory clones onto the Judge's web dashboard instantly.
+- **Backend**: **Python (FastAPI)**. Perfect for the real-time telemetry bridge.
+- **Hosting**: **Google Cloud Platform (GCP) Cloud Run**.
+- **Real-time Sync**: **Firebase Realtime Database**. Provides the sub-50ms sync needed to mirror the "Auditory Twin" from the iPhone to the Judge's web dashboard.
 
 ---
 
