@@ -1,0 +1,53 @@
+# Visual branch — engineering log
+
+This file is **append-only** (add new entries at the **top**). It records work on the **`Visual` branch**: on-device / reference **vision pipeline**, **JSON contract**, **Python bridge**, **tests**, and **PRD/docs** that describe vision only. **Audio** and **UI/UX** app code may keep their own logs; anything that **changes the vision contract or `BlindGuyKit` API** still belongs here.
+
+**How to use (continual, not end-of-sprint only):** After **each** **Visual**-scoped change, append **before** you push or open the PR: a short bullet under **today’s** `## YYYY-MM-DD` (start a new day section at the top when the calendar day changes). **Same commit** as the code is ideal. One bullet can cover a focused diff; for large work, a few bullets is fine. **Humans and coding agents** both follow this so judges and partners always see a fresh trail.
+
+| Cadence | Action |
+|--------|--------|
+| **Every** vision PR / direct push to `Visual` | At least one new log bullet |
+| New calendar day | New `## YYYY-MM-DD` block **above** older days |
+| Contract or `FramePayload` change | Log entry + **PRD** / `contract.example.json` (see **PRD** maintenance) |
+
+---
+
+## 2026-04-27
+
+- **Process — continual logging:** Strengthened instructions in this file, **PRD** maintenance, and **README** so the log is **appended to on every** **Visual**-scoped change, not only at release. Replaces ad-hoc “ship day” only updates.
+
+---
+
+## 2026-04-26
+
+- **Synthesis** (`synthesis.py`): random sharp BGR, Gaussian blur, flat **uniform** field, **`lens_streak_sequence()`** (tagged sharp/blur) for reproducible smudge demos without hardware.
+- **Simulation engine** (`simulation.py`): **`SimulationEngine`**, **`SimulationReport`**; **`lens_streak`** / **`lens_sharp`** (no YOLO import) and **`vision_random`** (lazy `VisionEngine` + full contract); CLI **`python -m visual_engine.simulation`** with `--print` / `--payloads-only`. Lens-only path works in CI without `ultralytics`.
+- **Tests:** `test_synthesis.py`, `test_simulation.py`; **`smoke_simulation`** in **`testing_engine.run_built_in_smoke`**. Pytest marker **`slow`** for optional YOLO sim.
+- **Docs:** README §8 simulation; **PRD** §4.2 table rows for `synthesis` / `simulation`.
+
+---
+
+## 2026-04-25
+
+- **Scaffolded Python vision service** (`src/visual_engine/`): Ultralytics **YOLOv8n**, six PRD classes, confidence **≥ 0.55**, monocular distance + pan, simple **object_id** tracking and **velocity_mps** / **priority**, **~15 Hz** emit with **10 Hz** fallback when average detection time exceeds the gate.
+- **Flask bridge** (`app.py`, `main.py`): **`GET /health`**, **`GET /frame`**, **`POST /infer`** (JPEG body or multipart `image`), CORS; **`--no-local-camera`** for iPhone-only capture to Mac; default port **8765**.
+- **Contract** (`contracts.py`): `make_frame_payload` aligned with PRD; optional **`camera`** block when lens checks are on.
+- **Lens / smudge heuristic** (`lens_quality.py`): Laplacian variance on downscaled gray frame; consecutive low readings → **`lens_status: warning`** and **`lens_announce`** text; tunable via **`VisualConfig`**.
+- **Calibration CLI** (`calibration.py`): compute **`focal_length_px`** from real-world measurements.
+- **Testing engine** (`testing_engine.py`): `validate_frame_payload`, in-process **`run_built_in_smoke`**; CLI **`python -m visual_engine.testing_engine`** with `PYTHONPATH=src`.
+- **Pytest** (`tests/`, `pytest.ini`): contract, lens, testing-engine tests; **`requirements.txt`** includes **pytest** / **opencv-python** as needed.
+- **On-device parity (iOS Swift package)** `ios/BlindGuyKit/`: CoreML + Vision, same **`FramePayload`** / **`camera`** shape, **`BlindGuySession`**, lens analysis + **iOS TTS** announcer for warnings; **`scripts/export_coreml.py`** for **yolov8n** → CoreML with NMS.
+- **Documentation**: `docs/visual-integration.md`, `docs/contract.example.json`, root **`README.md`**, **`ios/README.md`**, **`PRD.md`** (§4, §4.1, §4.2) updated to match the above.
+- **Vision-only log (this file):** created **`docs/VISION_BRANCH_LOG.md`** as the append-only **Visual branch** engineering log; **`PRD.md`** (maintenance note + §4.1 **Docs in repo** row) and **`README.md`** (integration handoff) now reference it.
+- **E2E wiring (follow-up):** iOS **`CameraPipeline`** — **`AVCaptureSession`** (VGA, BGRA, back wide) → **`BlindGuySession.ingest`**; **`FramePayload+JSON.swift`** for debug/logging; **`docs/WIRING.md`** checklist; macOS compiles a stub that throws from **`start()`**.
+- **Hackathon / judge demo (later on same day):** **`GET /judge`** + **`judge.html`** (live canvas, `/health` + `/frame` poll, **Web Speech TTS**); `GET /` landing; **`/health`**: **`uptime_s`**, **`visual_version`**, **`hints`** + **`narration_lines`** via **`demo_hints`**. **iOS** **`PayloadHUD`** (stats + **haptic** on **HIGH**).
+
+---
+
+## Template (copy when adding a new day)
+
+```markdown
+## YYYY-MM-DD
+
+- …
+```
