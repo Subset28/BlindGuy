@@ -77,8 +77,9 @@ struct OnboardingView: View {
                         withAnimation { shouldShowOnboarding = false }
                     }
                 }) {
-                    Text(currentPage == pages.count - 1 ? "GET STARTED" : "CONTINUE")
-                        .font(.system(size: 16, weight: .black))
+                    Text(currentPage == pages.count - 1 ? "Get Started" : "Continue")
+                        .font(.headline)
+                        .fontWeight(.bold)
                         .foregroundColor(.black)
                         .frame(maxWidth: .infinity)
                         .frame(height: 60)
@@ -112,12 +113,12 @@ struct OnboardingContent: View {
             
             VStack(spacing: 16) {
                 Text(page.title)
-                    .font(.system(size: 32, weight: .black, design: .rounded))
+                    .font(.largeTitle.bold())
                     .multilineTextAlignment(.center)
                 
                 Text(page.description)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundColor(.gray)
+                    .font(.body)
+                    .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 40)
             }
