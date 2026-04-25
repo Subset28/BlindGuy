@@ -1,3 +1,6 @@
+# Ultralytics download (re-export with scripts/export_coreml.py)
+yolov8n.pt
+
 .venv/
 __pycache__/
 *.pyc
