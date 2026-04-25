@@ -1,8 +1,16 @@
+import sys
+import pathlib
 import pytest
 import requests
-from . import generator as gen
-from . import validator as val
 import socket
+
+# Ensure parent directory (simulator/) is on sys.path so sibling modules import correctly
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+import generator as gen
+import validator as val
 
 
 def is_server_running(host='127.0.0.1', port=8765, timeout=0.5):
