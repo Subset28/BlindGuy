@@ -41,7 +41,8 @@ public final class CameraPipeline: NSObject, ObservableObject, AVCaptureVideoDat
         self.imageOrientation = imageOrientation
         self.session = AVCaptureSession()
         self.sessionQueue = DispatchQueue(label: "com.blindguy.capture.session", qos: .userInitiated)
-        self.bufferQueue = DispatchQueue(label: "com.blindguy.capture.buffer", qos: .userInitiated)
+        // Keep camera delivery off the main queue; slightly higher QoS for smoother start under load.
+        self.bufferQueue = DispatchQueue(label: "com.blindguy.capture.buffer", qos: .userInteractive)
         super.init()
     }
 
@@ -137,9 +138,7 @@ public final class CameraPipeline: NSObject, ObservableObject, AVCaptureVideoDat
     ) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let o = imageOrientation
-        Task { @MainActor [weak self] in
-            self?.vision.ingest(pixelBuffer: pixelBuffer, orientation: o)
-        }
+        vision.ingest(pixelBuffer: pixelBuffer, orientation: o)
     }
 }
 

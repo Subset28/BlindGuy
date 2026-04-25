@@ -36,7 +36,8 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
         }
     }
 
-    /// Process one camera frame. `completion` is called on the **main** queue. Payload is `nil` if dropped.
+    /// Process one camera frame. `completion` is called on the **main** queue **only** when a `FramePayload` is emitted.
+    /// Dropped frames (in-flight, rate limit) and handler errors do **not** call `completion` — avoids main-queue storms.
     public func process(
         pixelBuffer: CVPixelBuffer,
         orientation: CGImagePropertyOrientation,
@@ -59,13 +60,11 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
         stateLock.lock()
         if inFlight {
             stateLock.unlock()
-            DispatchQueue.main.async { completion(nil) }
             return
         }
         let now = CACurrentMediaTime()
         if now - lastEmitTime < config.minEmitInterval * 0.9 {
             stateLock.unlock()
-            DispatchQueue.main.async { completion(nil) }
             return
         }
         inFlight = true
@@ -148,7 +147,6 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
             #if DEBUG
             print("BlindGuyKit perform: \(error)")
             #endif
-            DispatchQueue.main.async { completion(nil) }
         }
     }
 
