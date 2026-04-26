@@ -12,62 +12,40 @@ struct RadarView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let size = min(geo.size.width, geo.size.height)
-            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2 + (size * 0.15))
-            let maxRadius = size * 0.75
+            let radarOrigin = CGPoint(x: geo.size.width / 2, y: geo.size.height - 30)
+            let maxRadius = geo.size.height - 60
             
             ZStack {
-                // ── FOV Cone Background ──────────────────────────────────────
+                // ── FOV Cone (The 'Vision' field) ────────────────────────────
                 ConeShape(angle: 100)
                     .fill(
-                        RadialGradient(
-                            colors: [sweepColor.opacity(0.08), .clear],
-                            center: .bottom,
-                            startRadius: 0,
-                            endRadius: maxRadius
+                        LinearGradient(
+                            colors: [sweepColor.opacity(0.12), sweepColor.opacity(0.01)],
+                            startPoint: .bottom,
+                            endPoint: .top
                         )
                     )
                     .frame(width: maxRadius * 2, height: maxRadius)
-                    .position(x: center.x, y: center.y - (maxRadius/2))
+                    .position(x: radarOrigin.x, y: radarOrigin.y - (maxRadius / 2))
                 
-                // ── FOV Grid Lines ───────────────────────────────────────────
+                // ── Grid Rings ──────────────────────────────────────────────
                 ForEach([0.33, 0.66, 1.0], id: \.self) { fraction in
-                    ConeShape(angle: 100)
-                        .stroke(ringColor.opacity(0.12), lineWidth: 1)
-                        .frame(width: maxRadius * 2 * fraction, height: maxRadius * fraction)
-                        .position(x: center.x, y: center.y - (maxRadius * fraction / 2))
+                    Circle()
+                        .inset(by: (1.0 - fraction) * maxRadius)
+                        .stroke(ringColor.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        .frame(width: maxRadius * 2, height: maxRadius * 2)
+                        .position(radarOrigin)
                 }
-
-                // ── Center Axis ──────────────────────────────────────────────
-                Path { p in
-                    p.move(to: center)
-                    p.addLine(to: CGPoint(x: center.x, y: center.y - maxRadius))
-                }
-                .stroke(ringColor.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
 
                 // ── Sweep arm (Scanner beam) ─────────────────────────────────
                 RadarSweepLine(maxRadius: maxRadius, sweepColor: sweepColor)
-                    .position(center)
+                    .position(radarOrigin)
 
                 // ── Object blips ─────────────────────────────────────────────
                 ForEach(objects, id: \.objectId) { obj in
-                    let pos = position(for: obj, in: maxRadius, center: center)
-                    ZStack {
-                        Circle()
-                            .fill(sweepColor)
-                            .frame(width: 10, height: 10)
-                            .shadow(color: sweepColor.opacity(0.8), radius: 6)
-                            .shadow(color: sweepColor.opacity(0.4), radius: 12)
-                        
-                        // Distance label for high priority
-                        if obj.priority.uppercased() == "HIGH" {
-                            Text(String(format: "%.1fm", obj.distanceM))
-                                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                .foregroundStyle(sweepColor)
-                                .offset(y: 14)
-                        }
-                    }
-                    .position(pos)
+                    let pos = radarPosition(for: obj, in: maxRadius)
+                    RadarBlip(obj: obj, sweepColor: sweepColor)
+                        .position(x: radarOrigin.x + pos.x, y: radarOrigin.y + pos.y)
                 }
 
                 // ── User position (Origin) ───────────────────────────────────
@@ -75,7 +53,7 @@ struct RadarView: View {
                     .fill(sweepColor)
                     .frame(width: 14, height: 14)
                     .shadow(color: sweepColor.opacity(0.6), radius: 12)
-                    .position(center)
+                    .position(radarOrigin)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .clipped()
@@ -92,24 +70,46 @@ struct RadarView: View {
 
     private var ringColor: Color { BlindGuyTheme.accent }
 
-    /// Maps the real world 3D position to the 2D radar plane
-    private func position(for obj: DetectedObjectDTO, in maxRadius: CGFloat, center: CGPoint) -> CGPoint {
+    /// Maps the real world 3D position to the 2D radar plane relative to origin
+    private func radarPosition(for obj: DetectedObjectDTO, in maxRadius: CGFloat) -> CGPoint {
         // Map pan to a wider arc (-50° to +50°)
         let angleDegrees = obj.panValue * 50.0
         let angleRadians = angleDegrees * .pi / 180.0
         
         // Non-linear distance mapping: emphasize closer objects
-        // (y = sqrt(x) makes the center area larger for closer objects)
         let maxDist = 7.0
         let rawNorm = min(max(obj.distanceM, 0.3), maxDist) / maxDist
         let normDist = sqrt(rawNorm) 
         
         let radius = maxRadius * CGFloat(normDist)
         
-        let x = center.x + CGFloat(sin(angleRadians)) * radius
-        let y = center.y - CGFloat(cos(angleRadians)) * radius
+        let x = CGFloat(sin(angleRadians)) * radius
+        let y = -CGFloat(cos(angleRadians)) * radius
         
         return CGPoint(x: x, y: y)
+    }
+}
+
+struct RadarBlip: View {
+    let obj: DetectedObjectDTO
+    let sweepColor: Color
+    
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(sweepColor)
+                .frame(width: 10, height: 10)
+                .shadow(color: sweepColor.opacity(0.8), radius: 6)
+                .shadow(color: sweepColor.opacity(0.4), radius: 12)
+            
+            // Distance label for high priority
+            if obj.priority.uppercased() == "HIGH" {
+                Text(String(format: "%.1fm", obj.distanceM))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(sweepColor)
+                    .offset(y: 14)
+            }
+        }
     }
 }
 
