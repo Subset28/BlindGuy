@@ -830,7 +830,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         // Tier 2: Mobility Obstacles (Tripping & Path)
         let obstacleKeywords = [
             "chair", "table", "couch", "bench", "bed", "furniture", "desk", "stool",
-            "door", "window", "gate", "fence", "wall",
+            "door", "window", "gate", "fence",
             "waste container", "trash", "bin",
             "cart", "stroller", "wheelchair"
         ]
@@ -842,7 +842,8 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             "cup", "bowl", "plate", "fork", "knife", "spoon", "glass", "bottle",
             "book", "magazine", "paper", "pen", "pencil",
             "toy", "ball", "doll", "game",
-            "clothing", "shoe", "boot", "hat", "sock", "shirt", "pants"
+            "clothing", "shoe", "boot", "hat", "sock", "shirt", "pants",
+            "building", "wall"
         ]
         if lowValueKeywords.contains(where: { t.contains($0) }) { return .lowValue }
         
