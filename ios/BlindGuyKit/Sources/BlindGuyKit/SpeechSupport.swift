@@ -297,6 +297,7 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
             return "\(h) detected"
         }
         let base = "\(h) \(direction(panValue))"
+        if distance.confidence == .low { return base }
         guard let m = distance.meters, m.isFinite,
               let dPhrase = PhraseBuilder.phraseForDistance(
                 meters: m,
@@ -329,41 +330,49 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
                 return "roughly \(ftRounded) feet"
             }
             if d < 1.0 {
-                return "less than one meter"
+                return "less than one meter away"
             } else if d < 3.0 {
                 let tenths = (d * 10).rounded() / 10
                 var s = String(format: "%.1f", tenths)
-                if s.hasSuffix(".0") { s = String(s.dropLast(2)) }
-                return "roughly \(s) meters"
+                if s.hasSuffix(".0") {
+                    s = String(s.dropLast(2))
+                }
+                return "about \(s) meters away"
             } else {
-                let n = Int(d.rounded())
-                return n == 1 ? "roughly 1 meter" : "roughly \(n) meters"
+                let rounded = Int(d.rounded())
+                return rounded == 1
+                    ? "about 1 meter away"
+                    : "about \(rounded) meters away"
             }
         case .high:
             if imperial {
-                if d < 1.0 { return "less than 4 feet" }
-                return "about \(ftRounded) feet"
+                if d < 1.0 { return "less than 4 feet away" }
+                return "about \(ftRounded) feet away"
             }
             // LiDAR-quality: speak to one decimal for < 3m, whole meters beyond
             if d < 1.0 {
-                return "less than 1 meter"
+                return "less than one meter away"
             } else if d < 3.0 {
                 let tenths = (d * 10).rounded() / 10
                 var s = String(format: "%.1f", tenths)
-                if s.hasSuffix(".0") { s = String(s.dropLast(2)) }
-                return "about \(s) meters"
+                if s.hasSuffix(".0") {
+                    s = String(s.dropLast(2))
+                }
+                return "about \(s) meters away"
             } else {
                 let rounded = Int(d.rounded())
-                return rounded == 1 ? "about 1 meter" : "about \(rounded) meters"
+                return rounded == 1
+                    ? "about 1 meter away"
+                    : "about \(rounded) meters away"
             }
         }
     }
 
     private func direction(_ pan: Double) -> String {
         switch pan {
-        case ..<(-0.45): return "Left"
-        case 0.45...: return "Right"
-        default: return "Center"
+        case ..<(-0.45): return "to the left"
+        case 0.45...: return "to the right"
+        default: return "straight ahead"
         }
     }
 

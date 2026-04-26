@@ -62,7 +62,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private static let cooldownSameFurnitureClassSeconds: TimeInterval = 10.0
     /// Desk / screen objects share the spoken label "Computer" — one cue is enough while the scene stays stable.
     private static let cooldownSameComputerPhraseSeconds: TimeInterval = 10.0
-    private let minIntervalAnySpeechSeconds: TimeInterval = 0.50
+    private let minIntervalAnySpeechSeconds: TimeInterval = 0.85
     private let peopleGroupCooldownSeconds: TimeInterval = 7.0
     private let maxAnnouncementsPerFrame: Int = 1
     private let maxQueuedItemsPerTier = 6
@@ -241,7 +241,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private func startSpeechScheduler() {
         if speechTimer != nil { return }
         let t = DispatchSource.makeTimerSource(queue: workQueue)
-        t.schedule(deadline: .now(), repeating: .milliseconds(50))
+        t.schedule(deadline: .now(), repeating: .milliseconds(90))
         t.setEventHandler { [weak self] in
             self?.drainSpeechBacklogIfPossible()
         }
