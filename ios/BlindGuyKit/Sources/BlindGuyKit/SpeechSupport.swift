@@ -328,10 +328,17 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
             if imperial {
                 return "roughly \(ftRounded) feet"
             }
-            let n = max(1, Int(d.rounded()))
-            return n == 1
-                ? "roughly 1 meter"
-                : "roughly \(n) meters"
+            if d < 1.0 {
+                return "less than one meter"
+            } else if d < 3.0 {
+                let tenths = (d * 10).rounded() / 10
+                var s = String(format: "%.1f", tenths)
+                if s.hasSuffix(".0") { s = String(s.dropLast(2)) }
+                return "roughly \(s) meters"
+            } else {
+                let n = Int(d.rounded())
+                return n == 1 ? "roughly 1 meter" : "roughly \(n) meters"
+            }
         case .high:
             if imperial {
                 if d < 1.0 { return "less than 4 feet away" }
