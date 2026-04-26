@@ -93,9 +93,8 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private let speechGateLock = NSLock()
     private var allowsFrameSpeech: Bool = false
     private static let minConfidenceForSpeech: Double = 0.62
-    /// Debounce transient one-frame detections before first spoken cue.
-    private let minStableFramesForSpeech = 4
-    private let minStableDurationForSpeech: TimeInterval = 0.24
+    /// Debounce transient detections before first spoken cue.
+    private let minStableFramesForSpeech = 3
     private static let bridgeURLKey = "blindguy.visionBridgeBaseURLString"
 
     static var defaultBridgeBaseURL: URL { URL(string: "http://127.0.0.1:8765")! }
@@ -709,24 +708,12 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     }
 
     private func passesPersistenceGate(obj: DetectedObjectDTO, now: Date) -> Bool {
-        if shouldBypassPersistenceGate(for: obj) { return true }
         guard let streak = visibilityStreakByObjectId[obj.objectId] else { return false }
         if streak.consecutiveFrames < minStableFramesForSpeech {
             telemetryDrop(.dedupe)
             return false
         }
-        if now.timeIntervalSince(streak.firstSeenAt) < minStableDurationForSpeech {
-            telemetryDrop(.dedupe)
-            return false
-        }
         return true
-    }
-
-    private func shouldBypassPersistenceGate(for obj: DetectedObjectDTO) -> Bool {
-        if obj.priority.uppercased() == "HIGH", obj.distanceM < 3.0 {
-            return true
-        }
-        return Self.safetyTier(for: obj.objectClass) == .critical && obj.distanceM < 3.0
     }
 
     private func passesDedupeGates(obj: DetectedObjectDTO, now: Date) -> Bool {
