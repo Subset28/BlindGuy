@@ -68,7 +68,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private let peopleGroupCooldownSeconds: TimeInterval = 7.0
     private let maxAnnouncementsPerFrame: Int = 1
     private let maxQueuedItemsPerTier = 6
-    private let itemTTLSeconds: TimeInterval = 1.8
+    private let itemTTLSeconds: TimeInterval = 1.1
     private let forcedSpeakFallbackSeconds: TimeInterval = 2.2
     private let noDetectionsAnnounceSeconds: TimeInterval = 12.0
     private static let maxPanAnySpeech: Double = 0.62
@@ -309,6 +309,9 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         pruneState(now: Date())
         
         // Update visibility tracking
+        let currentObjectIds = Set(frame.objects.map { $0.objectId })
+        pruneStaleObjects(currentIds: currentObjectIds)
+
         for obj in frame.objects {
             lastSeenByObjectId[obj.objectId] = Date()
         }
@@ -545,6 +548,30 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
                 voiceIdentifier: preferredVoice()?.identifier
             )
         )
+    }
+
+    private func pruneStaleObjects(currentIds: Set<String>) {
+        let filterBlock: (SpeechItem) -> Bool = { item in
+            // Extract objectId from "objectId|timestamp" format
+            let parts = item.id.split(separator: "|")
+            guard parts.count >= 1 else { return true }
+            let objId = String(parts[0])
+            
+            // If it's a system message or forced announcement, don't prune based on viewport
+            if item.id.contains("no-detections") || item.id.contains("forced") || item.id.contains("system") {
+                return true
+            }
+            
+            let stillInView = currentIds.contains(objId)
+            if !stillInView {
+                self.queuedIds.remove(item.id)
+                self.telemetryDrop(.sceneFlush, utterance: "viewport-exit:\(item.text)")
+            }
+            return stillInView
+        }
+        
+        highPriorityStack = highPriorityStack.filter(filterBlock)
+        normalPriorityQueue = normalPriorityQueue.filter(filterBlock)
     }
 
     private func pruneExpiredQueuedItems() {
