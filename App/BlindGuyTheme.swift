@@ -10,25 +10,41 @@ enum BlindGuyTheme {
     static var background: LinearGradient {
         LinearGradient(
             colors: [
-                Color(red: 0.03, green: 0.035, blue: 0.055),
-                Color(red: 0.01, green: 0.012, blue: 0.02),
+                Color(red: 0.05, green: 0.06, blue: 0.09),
+                Color(red: 0.02, green: 0.02, blue: 0.04),
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
 
-    static var glassStroke: some ShapeStyle {
-        Color.white.opacity(0.1)
+    static var glassBackground: some ShapeStyle {
+        .ultraThinMaterial
     }
 
-    static let cornerL: CGFloat = 22
-    static let cornerM: CGFloat = 16
+    static var glassStroke: LinearGradient {
+        LinearGradient(
+            colors: [.white.opacity(0.12), .white.opacity(0.03)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    static func premiumShadow<S: Shape>(_ shape: S) -> some View {
+        shape
+            .fill(.clear)
+            .shadow(color: .black.opacity(0.4), radius: 20, x: 0, y: 12)
+            .shadow(color: accent.opacity(0.04), radius: 40, x: 0, y: 0)
+    }
+
+    static let cornerL: CGFloat = 28
+    static let cornerM: CGFloat = 18
     static let cornerS: CGFloat = 12
 }
 
 struct GlassPanel<Content: View>: View {
     var padding: CGFloat = 16
+    var cornerRadius: CGFloat = BlindGuyTheme.cornerM
     @ViewBuilder var content: () -> Content
 
     var body: some View {
@@ -36,12 +52,23 @@ struct GlassPanel<Content: View>: View {
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background {
-                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerM, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                ZStack {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(.ultraThinMaterial)
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(LinearGradient(
+                            colors: [.white.opacity(0.02), .clear],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ))
+                }
             }
             .overlay {
-                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerM, style: .continuous)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .strokeBorder(BlindGuyTheme.glassStroke, lineWidth: 1)
+            }
+            .background {
+                BlindGuyTheme.premiumShadow(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             }
     }
 }

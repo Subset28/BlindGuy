@@ -160,7 +160,7 @@ struct ContentView: View {
     }
 
     private var statusStrip: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             StatusChip(
                 systemImage: hearing.isUsingOnDevicePayload ? "iphone" : "dot.radiowaves.left.and.right",
                 title: hearing.isUsingOnDevicePayload ? "iPhone" : "Audio",
@@ -241,40 +241,27 @@ struct ContentView: View {
             Text(app.isScanning ? "Spatial field" : "Radar (Idle)")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
-            ZStack {
-                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
-                    .fill(Color.white.opacity(0.04))
+            GlassPanel(padding: 0, cornerRadius: BlindGuyTheme.cornerL) {
                 RadarView(
                     objects: app.session?.lastPayload?.objects ?? [],
                     alertActive: hearing.alertActive
                 )
             }
-            .frame(height: 280)
-            .clipShape(RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
-            }
+            .frame(height: 300)
         }
     }
 
     private var statsStrip: some View {
-        HStack(spacing: 0) {
-            StatPill(label: "Alert", value: app.threatLabel, emphasis: .high)
-            divider
-            StatPill(label: "Objects", value: "\(app.cloneCount)", emphasis: .normal)
-            divider
-            StatPill(label: "Latency", value: app.latencyLine, emphasis: .muted)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 4)
-        .background {
-            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
-                .fill(Color.white.opacity(0.05))
-        }
-        .overlay {
-            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+        GlassPanel(padding: 0, cornerRadius: BlindGuyTheme.cornerL) {
+            HStack(spacing: 0) {
+                StatPill(label: "Alert", value: app.threatLabel, emphasis: .high)
+                divider
+                StatPill(label: "Objects", value: "\(app.cloneCount)", emphasis: .normal)
+                divider
+                StatPill(label: "Latency", value: app.latencyLine, emphasis: .muted)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
         }
     }
 
@@ -325,23 +312,19 @@ private struct StatusChip: View {
     var color: Color
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: systemImage)
-                .font(.body.weight(.semibold))
-                .foregroundStyle(color)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                Text(subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+        GlassPanel(padding: 12, cornerRadius: BlindGuyTheme.cornerM) {
+            HStack(spacing: 10) {
+                Image(systemName: systemImage)
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(color)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background {
-            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerS, style: .continuous)
-                .fill(Color.white.opacity(0.06))
         }
     }
 }

@@ -63,7 +63,7 @@ When the app runs, the phone camera feeds an on-device vision pipeline. The hear
 ## Architecture (Repo Map)
 
 - `App/` - iOS app runtime (`AppViewModel`, `HearingEngine`, UI, model bundle)
-- `ios/DualSightKit/` - reusable Swift package (camera pipeline, detector, tracker, payload models)
+- `ios/BlindGuyKit/` - reusable Swift package (camera pipeline, detector, tracker, payload models)
 - `src/visual_engine/` - Python reference engine + Flask bridge
 - `docs/` - PRD, contract, wiring docs, release checklist, vision changelog
 - `scripts/` - model export + class mapping generation

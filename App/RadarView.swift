@@ -49,7 +49,7 @@ struct RadarView: View {
                         .rotationEffect(.degrees(sweep))
                 }
                 .onAppear {
-                    withAnimation(.linear(duration: 2.8).repeatForever(autoreverses: false)) {
+                    withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
                         sweep = 360
                     }
                 }
@@ -72,6 +72,7 @@ struct RadarView: View {
                         .fill(sweepColor)
                         .frame(width: 8, height: 8)
                         .shadow(color: sweepColor.opacity(0.8), radius: 6)
+                        .shadow(color: sweepColor.opacity(0.4), radius: 12)
                         .position(position(for: obj, in: size, center: center))
                 }
 
