@@ -38,9 +38,11 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private var queuedIds: Set<String> = []
 
     private var lastSpokenByObjectId: [String: Date] = [:]
-    private var lastSpokenBySpatialKey: [String: Date] = [:]
     private var lastSpokenByClass: [String: Date] = [:]
+    private var lastSpokenBySpatialKey: [String: Date] = [:]
     private var lastSpokenSnapshotByObjectId: [String: SpokenSnapshot] = [:]
+    private var lastSeenByObjectId: [String: Date] = [:]
+    private var lastSpokenPanByClass: [String: Double] = [:]
     private var lastSpeechAt: Date?
     private var lastPeopleGroupSpokenAt: Date?
     private var lastSpokenObjectCount: Int = 0
@@ -59,9 +61,9 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private let cooldownSameSpatialCellSeconds: TimeInterval = 4.0
     private static let cooldownSameClassSeconds: TimeInterval = 4.0
     /// Large static furniture can split into many tracks; longer cooldown limits repeat labels.
-    private static let cooldownSameFurnitureClassSeconds: TimeInterval = 10.0
+    private static let cooldownSameFurnitureClassSeconds: TimeInterval = 4.0
     /// Desk / screen objects share the spoken label "Computer" — one cue is enough while the scene stays stable.
-    private static let cooldownSameComputerPhraseSeconds: TimeInterval = 10.0
+    private static let cooldownSameComputerPhraseSeconds: TimeInterval = 3.0
     private let minIntervalAnySpeechSeconds: TimeInterval = 0.85
     private let peopleGroupCooldownSeconds: TimeInterval = 7.0
     private let maxAnnouncementsPerFrame: Int = 1
@@ -305,6 +307,12 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         if let until = mutedUntil, Date() < until { return }
 
         pruneState(now: Date())
+        
+        // Update visibility tracking
+        for obj in frame.objects {
+            lastSeenByObjectId[obj.objectId] = Date()
+        }
+
         let includeDistance = BlindGuyFeatureFlags.hearingTTS
         let announceEach = BlindGuyFeatureFlags.hearingTones
 
@@ -343,6 +351,28 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         if lastSpokenObjectCount > 0, pool.count * 2 < lastSpokenObjectCount {
             // Requirement 1.3: >50% drop -> flush normal queue immediately.
             flushNormalQueue(reason: "scene drop >50%")
+        }
+
+        // --- NEW: Spatial Haptics (Physical UI) ---
+        // We pulse haptics for every frame that contains high-priority or very close hazards,
+        // ensuring a "physical connection" even when speech is suppressed by dedupe gates.
+        if !pool.isEmpty {
+            let topObj = pool[0]
+            let isHigh = topObj.priority.lowercased() == "high"
+            let isVeryClose = topObj.distanceM < 2.5
+            
+            if isHigh || isVeryClose {
+                DispatchQueue.main.async {
+                    let manager = HapticManager.shared
+                    if topObj.distanceM < 1.5 {
+                        manager.triggerCriticalThreat()
+                    } else if isHigh {
+                        manager.triggerWarning()
+                    } else {
+                        manager.triggerDiscovery()
+                    }
+                }
+            }
         }
 
         var emitted = 0
@@ -587,6 +617,13 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         lastSpokenBySpatialKey = lastSpokenBySpatialKey.filter { now.timeIntervalSince($0.value) < cap }
         lastSpokenByClass = lastSpokenByClass.filter { now.timeIntervalSince($0.value) < classCap }
         lastSpokenSnapshotByObjectId = lastSpokenSnapshotByObjectId.filter { now.timeIntervalSince($0.value.at) < cap }
+        lastSeenByObjectId = lastSeenByObjectId.filter { now.timeIntervalSince($0.value) < cap }
+        lastSpokenPanByClass = lastSpokenPanByClass.filter {
+            if let last = lastSpokenByClass[$0.key] {
+                return now.timeIntervalSince(last) < classCap
+            }
+            return false
+        }
     }
 
     private func passesDedupeGates(obj: DetectedObjectDTO, now: Date) -> Bool {
@@ -602,8 +639,14 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             let dd = abs(snap.distanceM - obj.distanceM)
             let dp = abs(snap.pan - obj.panValue)
             let dt = now.timeIntervalSince(snap.at)
-            // If object hasn't moved/changed enough, do not repeat it.
-            if dt < 8.0 && dd < 0.9 && dp < 0.22 {
+            
+            // Look-away-and-back detection: if object was absent for > 0.4s, allow immediate re-speak
+            let lastSeen = lastSeenByObjectId[obj.objectId] ?? .distantPast
+            let absence = now.timeIntervalSince(lastSeen)
+            
+            // If object hasn't moved/changed enough, and hasn't been gone, do not repeat it too soon.
+            let trackCooldown: TimeInterval = 3.0 // Reduced from 8.0 for faster rhythm
+            if dt < trackCooldown && dd < 0.7 && dp < 0.18 && absence < 0.4 {
                 telemetryDrop(.dedupe)
                 return false
             }
@@ -619,8 +662,14 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         }
         let classGap = Self.cooldownSecondsForSpeechCategory(speechCat, rawClassKey: classKey)
         if let last = lastSpokenByClass[speechCat], now.timeIntervalSince(last) < classGap {
-            telemetryDrop(.dedupe)
-            return false
+            // Spatial Class Bypass: If this same class was spoken recently, 
+            // but the current object is at a significantly different pan, allow it.
+            let lastPan = lastSpokenPanByClass[speechCat] ?? 0.0
+            let panDelta = abs(obj.panValue - lastPan)
+            if panDelta < 0.35 { // Only block if it's in a similar horizontal zone
+                telemetryDrop(.dedupe)
+                return false
+            }
         }
         let sk = Self.spatialDedupeKey(obj: obj)
         if let last = lastSpokenBySpatialKey[sk], now.timeIntervalSince(last) < cooldownSameSpatialCellSeconds {
@@ -635,6 +684,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         lastSpokenByObjectId[obj.objectId] = now
         let speechCat = Self.speechDedupeCategory(forClassKey: obj.objectClass.lowercased())
         lastSpokenByClass[speechCat] = now
+        lastSpokenPanByClass[speechCat] = obj.panValue
         lastSpokenBySpatialKey[Self.spatialDedupeKey(obj: obj)] = now
         lastSpokenSnapshotByObjectId[obj.objectId] = SpokenSnapshot(
             distanceM: obj.distanceM,
@@ -674,9 +724,9 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         if t == "truck" || t == "bus" || t == "car" { return 3.0 }
         if t == "bicycle" || t == "motorcycle" { return 1.5 }
         if t == "person" { return 1.0 }
-        // Electronics / display are intentionally lowest-priority to avoid repetitive desk chatter.
-        if t == "laptop" || t == "television" || t == "mobile phone" || t == "computer monitor" { return 0.35 }
-        if t == "computer keyboard" || t == "computer mouse" || t == "remote control" { return 0.30 }
+        // Electronics / display are now medium-priority so they are mentioned when looking directly at them.
+        if t == "laptop" || t == "television" || t == "mobile phone" || t == "computer monitor" { return 0.85 }
+        if t == "computer keyboard" || t == "computer mouse" || t == "remote control" { return 0.40 }
         if t == "stairs" || t == "waste container" { return 1.85 }
         if t == "kitchen & dining room table" || t == "couch" || t == "chair" || t == "bench" { return 0.78 }
         return 1.0

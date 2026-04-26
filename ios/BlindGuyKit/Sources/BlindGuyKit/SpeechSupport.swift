@@ -48,8 +48,12 @@ public enum ObjectSpokenName: Sendable {
         if k.isEmpty { return "Object" }
         switch k {
         case "kitchen & dining room table": return "Table"
-        case "laptop", "television", "computer keyboard", "computer mouse", "remote control", "computer monitor":
-            return "Computer"
+        case "laptop": return "Laptop"
+        case "television": return "Television"
+        case "computer keyboard": return "Keyboard"
+        case "computer mouse": return "Mouse"
+        case "computer monitor": return "Monitor"
+        case "remote control": return "Remote"
         case "person": return "Person"
         case "chair": return "Chair"
         case "waste container": return "Trash can"

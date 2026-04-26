@@ -36,18 +36,6 @@ public struct PayloadHUD: View {
             }
             .padding(10)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-            #if os(iOS)
-            .onChange(of: p.frameId) { newId in
-                guard hapticsEnabled else { return }
-                guard let cur = session.lastPayload else { return }
-                let hasHigh = cur.objects.contains { $0.priority.uppercased() == "HIGH" }
-                if hasHigh, newId != lastHighHapticFrame {
-                    lastHighHapticFrame = newId
-                    UIImpactFeedbackGenerator(style: .rigid)
-                        .impactOccurred(intensity: 0.35)
-                }
-            }
-            #endif
         } else {
             Text("…")
                 .font(.caption.monospaced())

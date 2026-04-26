@@ -34,17 +34,25 @@ struct SettingsView: View {
                                 ttsVoiceStyle = "calm"
                                 app.hearing.speakImmediate("Calm mode active")
                             }
+                            .accessibilityLabel("Preset: Calm")
+                            .accessibilityHint("Enables low-verbosity speech with a softer voice style.")
+                            
                             PresetButton(title: "Active", icon: "bolt.fill", color: BlindGuyTheme.accent) {
                                 hearingTTS = true
                                 ttsVerbosity = "normal"
                                 ttsVoiceStyle = "clear"
                                 app.hearing.speakImmediate("Full ocular sync active")
                             }
+                            .accessibilityLabel("Preset: Active")
+                            .accessibilityHint("Enables full-verbosity speech with clear distance estimates.")
+                            
                             PresetButton(title: "Alerts Only", icon: "bell.badge.fill", color: BlindGuyTheme.warmAlert) {
                                 hearingTTS = false
                                 ttsCriticalOnly = true
                                 app.hearing.speakImmediate("High priority alerts only")
                             }
+                            .accessibilityLabel("Preset: Alerts Only")
+                            .accessibilityHint("Silences non-critical announcements. Only high-priority hazards will be spoken.")
                         }
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
@@ -54,13 +62,18 @@ struct SettingsView: View {
 
                     Section {
                         Toggle(isOn: $hearingTones) { Label("Identify Objects", systemImage: "text.bubble.fill") }
-                            .accessibilityHint("If on, the clone will speak the name of every detected object.")
+                            .accessibilityLabel("Identify Objects")
+                            .accessibilityHint("When enabled, the Auditory Twin will name every detected object.")
+                        
                         Toggle(isOn: $hearingTTS) { Label("Speak Distance", systemImage: "ruler") }
-                            .accessibilityHint("If on, the clone will include distance estimates in every announcement.")
+                            .accessibilityLabel("Speak Distance")
+                            .accessibilityHint("When enabled, announcements will include precise distance estimates.")
+                        
                         Toggle(isOn: $ttsCriticalOnly) {
                             Label("High-Priority Only", systemImage: "exclamationmark.triangle.fill")
                         }
-                        .accessibilityHint("If on, the clone will remain silent until a high-threat object is detected.")
+                        .accessibilityLabel("High-Priority Only")
+                        .accessibilityHint("When enabled, only critical hazards will trigger voice alerts.")
                     } header: {
                         sectionHeader("Hearing Engine", icon: "ear")
                     } footer: {
@@ -87,7 +100,11 @@ struct SettingsView: View {
 
                     Section {
                         Toggle(isOn: $haptics) { Label("Tactile Feedback", systemImage: "iphone.radiowaves.left.and.right") }
+                            .accessibilityLabel("Tactile Feedback")
+                            .accessibilityHint("Enables physical vibration patterns for nearby objects.")
                         Toggle(isOn: $payloadHUD) { Label("Developer HUD", systemImage: "chart.bar.fill") }
+                            .accessibilityLabel("Developer Head-Up Display")
+                            .accessibilityHint("Shows technical vision data and latency on the main dashboard.")
                     } header: {
                         sectionHeader("Haptics & Visuals", icon: "hand.tap.fill")
                     }
@@ -218,23 +235,39 @@ struct SettingsView: View {
         }
         .tint(BlindGuyTheme.accent)
         .preferredColorScheme(.dark)
-        .onChange(of: hearingTones) { _ in
+        .onChange(of: hearingTones) { on in
+            HapticManager.shared.triggerDiscovery()
+            app.hearing.speakImmediate(on ? "Object identification enabled" : "Object identification disabled")
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
-        .onChange(of: ttsCriticalOnly) { _ in
+        .onChange(of: ttsCriticalOnly) { on in
+            HapticManager.shared.triggerDiscovery()
+            app.hearing.speakImmediate(on ? "Alerts only mode active" : "Full scene narration active")
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
-        .onChange(of: distanceUnits) { _ in
+        .onChange(of: distanceUnits) { val in
+            HapticManager.shared.triggerDiscovery()
+            app.hearing.speakImmediate("Units set to \(val)")
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
-        .onChange(of: ttsVoiceStyle) { _ in
+        .onChange(of: ttsVoiceStyle) { val in
+            HapticManager.shared.triggerDiscovery()
+            app.hearing.speakImmediate("Voice style set to \(val)")
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
-        .onChange(of: ttsVerbosity) { _ in
+        .onChange(of: ttsVerbosity) { val in
+            HapticManager.shared.triggerDiscovery()
+            app.hearing.speakImmediate("Verbosity set to \(val)")
+            app.hearing.applyFeatureTogglesFromUserDefaults()
+        }
+        .onChange(of: haptics) { on in
+            HapticManager.shared.triggerDiscovery()
+            app.hearing.speakImmediate(on ? "Tactile feedback on" : "Tactile feedback off")
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
         .onChange(of: ttsTelemetryEnabled) { on in
             TTSTelemetryStore.shared.setEnabled(on)
+            HapticManager.shared.triggerDiscovery()
             app.hearing.applyFeatureTogglesFromUserDefaults()
         }
         .sheet(isPresented: $showTelemetryShareSheet) {
