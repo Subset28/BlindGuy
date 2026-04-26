@@ -32,12 +32,20 @@ struct ContentView: View {
         NavigationStack {
             ZStack {
                 BlindGuyTheme.background.ignoresSafeArea()
-                RadialGradient(
-                    colors: [BlindGuyTheme.accent.opacity(0.09), .clear],
-                    center: .top,
-                    startRadius: 20,
-                    endRadius: 380
-                )
+                ZStack {
+                    RadialGradient(
+                        colors: [BlindGuyTheme.accent.opacity(0.12), .clear],
+                        center: .topLeading,
+                        startRadius: 0,
+                        endRadius: 450
+                    )
+                    RadialGradient(
+                        colors: [BlindGuyTheme.info.opacity(0.08), .clear],
+                        center: .bottomTrailing,
+                        startRadius: 0,
+                        endRadius: 600
+                    )
+                }
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
 

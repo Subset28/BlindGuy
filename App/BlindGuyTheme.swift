@@ -57,7 +57,7 @@ struct GlassPanel<Content: View>: View {
                         .fill(.ultraThinMaterial)
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(LinearGradient(
-                            colors: [.white.opacity(0.02), .clear],
+                            colors: [.white.opacity(0.04), .clear],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ))
@@ -70,5 +70,6 @@ struct GlassPanel<Content: View>: View {
             .background {
                 BlindGuyTheme.premiumShadow(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             }
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
     }
 }

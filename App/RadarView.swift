@@ -100,6 +100,7 @@ struct RadarView: View {
                     .position(center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Spatial field of view")
