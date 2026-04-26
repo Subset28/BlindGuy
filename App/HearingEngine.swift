@@ -171,6 +171,21 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         }
     }
 
+    /// Speaks a line immediately, bypassing cooldowns and system message history.
+    /// Use this for UI feedback (e.g. "Scanning started").
+    func speakImmediate(_ text: String) {
+        workQueue.async { [weak self] in
+            guard let self else { return }
+            let item = SpeechItem(
+                id: "immediate-\(UUID().uuidString)",
+                text: text,
+                priority: .high,
+                enqueuedAt: Date()
+            )
+            self.enqueue(item)
+        }
+    }
+
     @MainActor func start(vision: BlindGuySession?) {
         self.vision = vision
         isUsingOnDevicePayload = vision != nil

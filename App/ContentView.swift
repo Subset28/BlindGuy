@@ -262,6 +262,8 @@ struct ContentView: View {
                 )
             }
             .frame(height: 300)
+            .accessibilityLabel("Spatial Field")
+            .accessibilityHint("A real-time radar showing nearby objects. High priority items are spoken through the hearing engine.")
         }
     }
 
@@ -305,7 +307,8 @@ struct ContentView: View {
             }
             .buttonStyle(PrimaryDockButtonStyle(isOn: app.isScanning, enabled: app.modelAvailable))
             .disabled(!app.modelAvailable)
-            .accessibilityLabel(app.isScanning ? "Stop camera" : "Start camera")
+            .accessibilityLabel(app.isScanning ? "Stop scanning" : "Start scanning")
+            .accessibilityHint("Double tap to toggle the vision engine. When on, the app will speak nearby objects automatically.")
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)

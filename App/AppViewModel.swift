@@ -66,10 +66,12 @@ final class AppViewModel: ObservableObject {
             camera?.stop()
             camera = nil
             session?.clearPayload()
-            HapticManager.shared.triggerDiscovery()
+            hearing.speakImmediate("Scanning stopped")
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
             return
         }
-        HapticManager.shared.triggerDiscovery()
+        hearing.speakImmediate("Scanning started")
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
         #if os(iOS)
         guard let s = session else { return }
         let status = AVCaptureDevice.authorizationStatus(for: .video)
