@@ -1,4 +1,4 @@
-"""Synthetic BGR images for tests and bench simulation (no camera, no COCO file required)."""
+"""Synthetic BGR images for tests and bench simulation (no camera, no dataset files required)."""
 
 from __future__ import annotations
 

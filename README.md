@@ -1,16 +1,105 @@
-# BlindGuy
+# BlindGuy ◉
 
-A project for visual and audio assistance.
+<div align="center">
 
-**Branching:** trunk-based development on **`main`** only (no long-lived feature branches on the remote). See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+```
+  ╔═══════════════════════════════════════════════════════════╗
+  ║                                                           ║
+  ║              ◉  B L I N D G U Y   E N G I N E            ║
+  ║                                                           ║
+  ║      Hearing Through Sight  |  On-Device First           ║
+  ║                                                           ║
+  ╚═══════════════════════════════════════════════════════════╝
+```
 
-## Visual engine quick start
+**Academies of Loudoun 2026 Hackathon · CLONE Theme**
 
-This repository now includes a complete Python-based Visual Engine implementation
-that matches the PRD contract for real-time object detection payloads.
-It is fully standalone.
+![Platform](https://img.shields.io/badge/Platform-iOS%20%7C%20Python%20Bridge-0D1117?style=for-the-badge&labelColor=161B22)
+![Swift](https://img.shields.io/badge/Swift-5.9-FA7343?style=for-the-badge&logo=swift&logoColor=white)
+![CoreML](https://img.shields.io/badge/CoreML-ON--DEVICE-2563EB?style=for-the-badge)
+![YOLOv8m](https://img.shields.io/badge/YOLOv8m-Open%20Images%20V7-22C55E?style=for-the-badge)
+![Offline](https://img.shields.io/badge/100%25-Offline%20Inference-16A34A?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-8B5CF6?style=for-the-badge)
 
-### 1) Setup
+</div>
+
+---
+
+## Why We Built This
+
+Most assistive tools solve one narrow problem at a time. Real life is not narrow.
+
+BlindGuy is built for fast, crowded, unpredictable spaces where important things can be silent, partially visible, and moving. We wanted a system that can:
+
+- understand what is in front of the user,
+- estimate where it is (left/right and distance),
+- prioritize what matters most,
+- speak only what is useful.
+
+Our design target is **low-latency, private, on-device assistance**.
+
+For this hackathon's **CLONE** theme, our core idea is simple:  
+we are **cloning human eyes into an always-on perception engine** that can speak what vision sees.
+
+---
+
+## The BlindGuy Experience
+
+When the app runs, the phone camera feeds an on-device vision pipeline. The hearing engine converts detections into concise spoken cues with dedupe, cooldowns, priority logic, and strict pan gating to reduce noise.
+
+### 1) Sight → Hearing (primary path)
+
+- **Vision model:** YOLOv8m pretrained on **Open Images V7** (`yolov8m-oiv7`).
+- **Runtime:** CoreML + Vision on iPhone.
+- **Output contract:** shared `FramePayload` JSON (`docs/contract.example.json`).
+- **Hearing logic:** front-focused, risk-aware, rate-limited speech.
+
+### 2) Motion + urgency awareness
+
+Tracking preserves `object_id` and estimates `velocity_mps` between frames. Nearby high-priority objects are escalated while low-value clutter is deprioritized.
+
+### 3) Optional bridge (team integration)
+
+For dev and judging, a local Python service can run as a bridge (`/infer`, `/frame`, `/judge`).
+
+The product story remains **on-device inference**.
+
+---
+
+## Architecture (Repo Map)
+
+- `App/` - iOS app runtime (`AppViewModel`, `HearingEngine`, UI, model bundle)
+- `ios/BlindGuyKit/` - reusable Swift package (camera pipeline, detector, tracker, payload models)
+- `src/visual_engine/` - Python reference engine + Flask bridge
+- `docs/` - PRD, contract, wiring docs, release checklist, vision changelog
+- `scripts/` - model export + class mapping generation
+
+---
+
+## Quick Start
+
+### A) iOS on-device path (recommended)
+
+1. Export/copy the model bundle:
+
+```bash
+python3 scripts/export_coreml.py
+```
+
+This writes `App/yolov8m-oiv7.mlpackage`.
+
+2. Follow:
+
+- `ios/XCODE_SETUP.md`
+- `ios/README.md`
+
+3. Build and run on iPhone.
+
+---
+
+### B) Python bridge path (dev / judge tooling)
+
+Setup:
 
 ```bash
 python3 -m venv .venv
@@ -18,101 +107,82 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2) Run vision service
-
-**Laptop camera only (quick dev):**
+Run local webcam mode:
 
 ```bash
 PYTHONPATH=src python -m visual_engine.main --host 127.0.0.1 --port 8765
 ```
 
-**iPhone camera → Mac on the same Wi-Fi (for Swift UI/UX + Audio partners):** bind to all interfaces and do not open the laptop webcam. The iOS app POSTs JPEG frames; everyone still uses the same JSON.
+Run iPhone-to-Mac LAN mode:
 
 ```bash
 PYTHONPATH=src python -m visual_engine.main --host 0.0.0.0 --port 8765 --no-local-camera
 ```
 
-Point the iOS app at `http://<your-mac-lan-ip>:8765` (`POST /infer` with a JPEG, or `GET /frame` to poll the latest). See `docs/visual-integration.md` and `docs/contract.example.json` for the exact contract and Swift notes.
+Endpoints:
 
-### 3) Endpoints
+- `GET /` - landing page
+- `GET /judge` - live judge dashboard
+- `GET /health` - heartbeat + stats
+- `GET /frame` - latest payload
+- `GET /payload` - alias of `/frame`
+- `POST /infer` - one JPEG inference
 
-- `GET /` - tiny landing with links to the judge view and the JSON APIs.
-- `GET /judge` - **full-screen judge + demo dashboard** (live bboxes, `/health` stats, optional **browser TTS** for narration). Open this on a projector during your pitch; team phones can still hit `POST /infer` on the same port.
-- `GET /health` - heartbeat + `uptime_s`, performance stats, `visual_version`, and `hints` (object counts, nearest class/distance, **narration_lines** for a quick TTS or UI readout). Same JSON the iOS `PayloadHUD` could mirror in spirit.
-- `GET /frame` - latest detection payload in the shared JSON contract.
-- `GET /payload` - **alias of `/frame`** (hearing / spatial code may use this name; identical body).
-- `POST /infer` - one JPEG (raw body or multipart field `image`); same JSON in the response, and it updates the snapshot for `GET /frame`.
+---
 
-### 3.1) iOS app (final wiring)
+## Distance + Spatial Model
 
-- **Xcode** setup: `ios/XCODE_SETUP.md` — one `@main` (`BlindGuyAppEntry`), **BlindGuyKit**, **HearingEngine** (audio clones + optional bridge polling), **AppViewModel** + **CameraPipeline** + **ContentView** UI.
-- **Hearing** with no CoreML bundle: set **Settings → Development → Python bridge** to your Mac’s `http://<ip>:8765` and run the vision service; speech follows **`/frame`**. With **`yolov8n.mlpackage`** in the app (from `python3 scripts/export_coreml.py`), vision + speech run on-device.
+Distance is monocular estimation using known object sizes and camera geometry. Pan is normalized to `[-1, 1]` and used by hearing for left/right phrases, threat ranking, and side suppression.
 
-### 4) Optional calibration
+This is assistive estimation, not absolute measurement.
 
-Distance uses:
+---
 
-```text
-distance_m = (known_object_height_m * focal_length_px) / bbox_height_px
-```
+## Testing
 
-Override the default focal length:
-
-```bash
-PYTHONPATH=src python -m visual_engine.main --focal-length-px 900
-```
-
-You can also compute focal length from one or more measured samples:
-
-```bash
-PYTHONPATH=src python -m visual_engine.calibration \
-  --known-height-m 1.7 \
-  --known-distance-m 3.0 \
-  --bbox-heights-px 475 482 469
-```
-
-### 5) Integration handoff
-
-See `docs/visual-integration.md` for the JSON contract and bridge notes.
-
-**Vision pipeline changelog (append-only):** `docs/VISION_BRANCH_LOG.md` — **append a bullet on every** vision- or contract-scoped change (same commit as the code when possible; see the log’s header). Do not defer logging to “release day” only.
-
-### 6) iPhone / SwiftUI (on-device vision)
-
-The **`ios/BlindGuyKit`** Swift package runs **YOLOv8n** (COCO) with **CoreML + Vision** on the phone, outputs the same **`FramePayload`** shape as `docs/contract.example.json`, and includes **`BlindGuySession`** for SwiftUI. Export the model with `python3 scripts/export_coreml.py`, then follow **`ios/README.md`** (camera preset, frame rate, orientation, performance knobs, **lens / smudge** detection + TTS on iOS).
-
-### Known limitations
-
-- Distances are **estimated**, not exact measurements.
-- Frame-edge/occlusion filtering may suppress partially visible objects.
-- TTS output is prioritized and rate-limited; in low-noise mode some low-priority objects may be intentionally silent.
-- BlindGuy is assistive and does **not** replace a cane, guide dog, or orientation and mobility training.
-
-### 7) Tests and validation
-
-**Pytest (recommended with venv and `pip install -r requirements.txt`):**
+Run tests:
 
 ```bash
 pytest -q
 ```
 
-**Built-in testing engine (no pytest required):** runs schema + lens smokes in-process.
+Built-in smoke/contract checks:
 
 ```bash
 PYTHONPATH=src python3 -m visual_engine.testing_engine
 ```
 
-The same validators live in `src/visual_engine/testing_engine.py` (`validate_frame_payload`, `run_built_in_smoke`).
-
-### 8) Simulation (no camera, no phone)
-
-Synthetic BGR frames for bench demos and CI (lens path never needs YOLO):
+Simulation scenarios:
 
 ```bash
 PYTHONPATH=src python3 -m visual_engine.simulation --scenario lens_streak
 PYTHONPATH=src python3 -m visual_engine.simulation --scenario lens_sharp
-# slow: requires ultralytics + yolov8n download
+# slow: requires ultralytics + yolov8m-oiv7 download
 PYTHONPATH=src python3 -m visual_engine.simulation --scenario vision_random --frames 1
 ```
 
-Use `--print` for full JSON (with payload array) or `--payloads-only` for the frame list only.
+---
+
+## For Judges / Reviewers
+
+Start here for a fast technical walkthrough:
+
+- **iOS vision runtime:** `ios/BlindGuyKit/Sources/BlindGuyKit/CoreMLDetector.swift`
+- **Hearing prioritization + dedupe:** `App/HearingEngine.swift`
+- **Python reference inference:** `src/visual_engine/vision_engine.py`
+- **Contract shape:** `docs/contract.example.json`
+- **Product + engineering decisions:** `PRD.md`
+
+---
+
+## Safety Note
+
+BlindGuy is assistive software and does **not** replace a cane, guide dog, orientation/mobility training, or situational awareness.
+
+---
+
+## Contribution Notes
+
+Development is trunk-based on `main`. See `CONTRIBUTING.md`.
+
+For vision changes, append an entry to `docs/VISION_BRANCH_LOG.md` in the same commit when possible.

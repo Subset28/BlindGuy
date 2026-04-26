@@ -31,5 +31,5 @@ def test_simulation_vision_random_runs() -> None:
     r = SimulationEngine(VisualConfig()).run_vision_random(frames=1, width=320, height=240)
     assert r.frame_count == 1
     assert len(r.payloads) == 1
-    # random noise: usually no COCO class hits
+    # random noise: usually no allowlist class hits
     assert "objects" in r.payloads[0]

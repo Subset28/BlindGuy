@@ -40,14 +40,18 @@ class VisionEngine:
         )
 
         min_frac = self._config.min_bbox_area_fraction_in_frame
+        class_conf = self._config.class_confidence_thresholds
+        class_min_area = self._config.min_box_area_fraction_by_class
 
         detections: list[dict] = []
         for result in results:
             for box in result.boxes:
                 confidence = float(box.conf.item())
                 class_id = int(box.cls.item())
-                class_name = str(self._names[class_id])
+                class_name = str(self._names[class_id]).lower().strip()
                 if class_name not in self._config.target_classes:
+                    continue
+                if confidence < class_conf.get(class_name, self._config.confidence_threshold):
                     continue
                 x1, y1, x2, y2 = [float(v) for v in box.xyxy[0].tolist()]
                 if (
@@ -65,6 +69,9 @@ class VisionEngine:
                 pan_value = (x_center / frame_w - 0.5) * 2.0
                 w_norm = bbox_w / frame_w
                 h_norm = bbox_h / frame_h
+                area_norm = w_norm * h_norm
+                if area_norm < class_min_area.get(class_name, 0.0):
+                    continue
                 distance_m = monocular_distance_m(
                     class_name,
                     self._config.known_heights_m,

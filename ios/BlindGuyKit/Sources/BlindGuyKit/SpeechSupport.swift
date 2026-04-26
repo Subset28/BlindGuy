@@ -41,19 +41,22 @@ public struct DistanceFrameSample: Sendable {
     }
 }
 
-/// TTS label for a detector class key (COCO: `dining table`, `laptop`, …; open-vocab: `computer`, `trash can`, `stairs`).
+/// TTS label for a detector class key (Open Images V7 export uses lowercased names in payloads).
 public enum ObjectSpokenName: Sendable {
     public static func phrase(_ raw: String) -> String {
         let k = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if k.isEmpty { return "Object" }
         switch k {
-        case "dining table": return "Table"
-        case "laptop", "tv", "keyboard", "mouse", "remote", "computer": return "Computer"
+        case "kitchen & dining room table": return "Table"
+        case "laptop", "television", "computer keyboard", "computer mouse", "remote control", "computer monitor":
+            return "Computer"
         case "person": return "Person"
         case "chair": return "Chair"
-        case "trash can": return "Trash can"
+        case "waste container": return "Trash can"
         case "stairs": return "Stairs"
-        case "cell phone": return "Phone"
+        case "mobile phone": return "Phone"
+        case "coffee cup": return "Cup"
+        case "plant": return "Plant"
         default:
             return k.prefix(1).uppercased() + k.dropFirst().lowercased()
         }

@@ -11,7 +11,7 @@ struct SettingsView: View {
     @AppStorage(BlindGuyFeatureKey.ttsVoiceStyle) private var ttsVoiceStyle: String = "calm"
     @AppStorage(BlindGuyFeatureKey.ttsVerbosity) private var ttsVerbosity: String = "low"
     @AppStorage(BlindGuyFeatureKey.ttsTelemetryEnabled) private var ttsTelemetryEnabled: Bool = false
-    @AppStorage(BlindGuyFeatureKey.suppressedClassesCSV) private var suppressedClassesCSV: String = "clock,vase,wine glass,teddy bear,toothbrush"
+    @AppStorage(BlindGuyFeatureKey.suppressedClassesCSV) private var suppressedClassesCSV: String = ""
     @AppStorage(BlindGuyFeatureKey.haptics) private var haptics: Bool = true
     @AppStorage(BlindGuyFeatureKey.payloadHUD) private var payloadHUD: Bool = true
     @AppStorage("blindguy.visionBridgeBaseURLString") private var bridgeURLString: String = "http://127.0.0.1:8765"
@@ -77,7 +77,7 @@ struct SettingsView: View {
                                 Text("Suppressed classes (comma-separated)")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                TextField("clock,vase,wine glass,...", text: $suppressedClassesCSV)
+                                TextField("optional class names to silence, comma-separated", text: $suppressedClassesCSV)
                                     .autocorrectionDisabled()
                                     .padding(10)
                                     .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))

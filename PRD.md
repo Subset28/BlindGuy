@@ -2,11 +2,11 @@
 **Academies Hacks 2026 | Theme: CLONING**
 **Prepared by:** Senior Technical Product Manager
 **Deadline:** 24 Hours | **Team Size:** 3 Developers
-**Version:** 1.2.5 — COMPETITION DRAFT (as-built: `main` trunk, iOS TTS-only hearing, Python `/frame`/`/payload`; `VISION_BRANCH_LOG` continual-updates policy)
+**Version:** 1.2.6 — COMPETITION DRAFT (as-built: `main` trunk, iOS TTS-only hearing, Python `/frame`/`/payload`; `VISION_BRANCH_LOG` continual-updates policy)
 
 > **PRD maintenance (engineering):** When behavior or the JSON contract changes, update **§4**, **§4.1**, and **§4.2** in this file, bump the **Version** line (minor for contract/tooling, patch for typos), and keep **`docs/contract.example.json`**, **`README.md`**, and **`docs/visual-integration.md`** in sync. **Continually** append to **`docs/VISION_BRANCH_LOG.md`**—a short bullet in the same commit for **each** vision- or contract-scoped change (not only at the end of a sprint). This file is the single narrative source for judges + teammates; the repo is the source of truth for exact flags and filenames.
 
-**Ship target (this team):** **iPhone (iOS)** on the user’s body (lanyard or chest mount), with **AirPods Pro** for spatial output. The phone is the camera and the runtime for **Swift** (UI/UX + Audio). Vision ML is **YOLOv8n** (Ultralytics `yolov8n`, COCO); production inference is **on-device** (see Edge Processing). A **local Python bridge** in this repo is for integration and dev only (see below).
+**Ship target (this team):** **iPhone (iOS)** on the user’s body (lanyard or chest mount), with **AirPods Pro** for spatial output. The phone is the camera and the runtime for **Swift** (UI/UX + Audio). Vision ML is **YOLOv8m** pretrained on **Open Images V7** (Ultralytics `yolov8m-oiv7.pt`, 601 classes; app and Python bridge filter to a mobility-focused subset); production inference is **on-device** (see Edge Processing). A **local Python bridge** in this repo is for integration and dev only (see below).
 
 ---
 
@@ -31,7 +31,7 @@ To achieve sub-100ms latency and "utter beauty," we are using a **hybrid** stack
 - **(Alternate / not required for this team)** Android + `Camera2` + `AudioTrack` + Resonance Audio if a separate Android build is ever scoped.
 
 ### **AI Engine (The Vision)**
-- **Model:** **YOLOv8n** — `yolov8n.pt` (Ultralytics / export to **CoreML** `yolov8n.mlpackage` for on-device iOS).
+- **Model:** **YOLOv8m (Open Images V7)** — `yolov8m-oiv7.pt` (Ultralytics / export to **CoreML** `yolov8m-oiv7.mlpackage` for on-device iOS).
 - **On-device iOS (target):** **CoreML** + Neural Engine / GPU (quantized **INT8** when exported for deployment).
 - **Reference / dev (in this repo):** **Python 3** + **Flask** + `ultralytics` + `opencv-python` (camera or **JPEG-in** inference), same **`FramePayload` JSON** as the app. Live judge page: `GET /judge` on the local bridge.
 
@@ -118,8 +118,8 @@ This is the core user experience. Here is exactly how the "Spatial Radar" effect
 #### Tasks:
 
 **T1.1 — YOLOv8 setup**
-- Install `ultralytics` package. Use `yolov8n.pt` (nano, COCO).
-- Target classes: subset of **COCO-80** defined in `VisualConfig` (see `config.py`); all other classes are discarded.
+- Install `ultralytics` package. Use `yolov8m-oiv7.pt` (medium, **Open Images V7**).
+- Target classes: subset of **Open Images V7** (lowercased names) defined in `VisualConfig` (see `config.py`); all other classes are discarded.
 - Filter confidence threshold: `>= 0.55`. Below this, do not emit.
 
 **T1.2 — Bounding Box-to-Distance Math**
@@ -252,9 +252,9 @@ This is what the judges see. Shake the phone twice to activate:
 
 ### Edge Processing: Local-Only (production path)
 
-- **User-facing / pitch path:** **Zero cloud** during live assist. **All ML inference on the iPhone** (CoreML `yolov8n` or equivalent on-device). **No network required** to interpret the world or drive spatial audio in that mode.
+- **User-facing / pitch path:** **Zero cloud** during live assist. **All ML inference on the iPhone** (CoreML `yolov8m-oiv7` or equivalent on-device). **No network required** to interpret the world or drive spatial audio in that mode.
 - **Exception (development only):** the **Python Flask bridge** may run on a **Mac** and accept **LAN `POST /infer`** from the phone for faster team integration. That path **is not** the sponsor “edge-only” story until inference moves fully on-device (see **§4.1**).
-- Model: `yolov8n` — **CoreML** `.mlpackage` (iOS, exported from `yolov8n.pt`), optional ONNX for tooling.
+- Model: `yolov8m-oiv7` — **CoreML** `.mlpackage` (iOS, exported from `yolov8m-oiv7.pt`), optional ONNX for tooling.
 - Explicitly compatible with **GT Edge AI sponsor requirements** when the **iOS on-device** path is what you demo: say **"100% on-device inference, zero network dependency"** for that configuration.
 - Battery optimization: process every other frame at idle walking speed, every frame in high-motion environments (use accelerometer delta to gate processing rate).
 
@@ -307,9 +307,9 @@ This section records what the **`Visual` branch code** does today so **UI/UX**, 
 | Topic | Specific |
 |--------|-----------|
 | **Platform (user)** | **iOS** app on **iPhone**; camera forward; AirPods Pro for spatial output. |
-| **Vision model** | **YOLOv8n** via **Ultralytics**; weights file **`yolov8n.pt`** (downloaded on first run by the library). |
-| **Classes emitted** | Subset of **COCO-80** in `VisualConfig.target_classes` (e.g. person, vehicles, dog, traffic light, bench, bottle). |
-| **Confidence** | Detections below **0.55** are suppressed at inference (`conf` threshold). |
+| **Vision model** | **YOLOv8m Open Images V7** via **Ultralytics**; weights file **`yolov8m-oiv7.pt`** (downloaded on first run by the library). |
+| **Classes emitted** | Subset of **Open Images V7** in `VisualConfig.target_classes` (lowercased names; e.g. person, car, dog, traffic light, bench, mobile phone, waste container). |
+| **Confidence** | Detections below **`VisualConfig.confidence_threshold`** (default **0.58**) are suppressed at inference (`conf` threshold). |
 | **Distance** | `estimated_distance_m = (known_object_height_m * focal_length_px) / bbox_height_px` using reference heights in **T1.2**; **default `focal_length_px` = 850** (re-calibrate per camera with `visual_engine.calibration` + `--focal-length-px` on the server). |
 | **Pan** | `pan_value = (bbox_center_x / frame_width - 0.5) * 2.0`, clamped to **[-1, 1]**. |
 | **Tracking** | **Persistent `object_id`** per class with simple bbox association; **velocity_mps** from inter-frame distance delta / dt. |
@@ -319,7 +319,7 @@ This section records what the **`Visual` branch code** does today so **UI/UX**, 
 | **HTTP API** | `GET /health`, `GET /frame`, `POST /infer` (JPEG), CORS for dashboards. |
 | **Docs in repo** | `docs/visual-integration.md` (team handoff), `docs/contract.example.json` (example payload), **`docs/VISION_BRANCH_LOG.md`** (append-only **vision pipeline** log; all work on **`main`**). |
 | **Dependencies** | `flask`, `ultralytics`, `opencv-python`, `numpy` (see `requirements.txt`). |
-| **iOS on-device (Swift / SwiftUI)** | Swift package **`ios/BlindGuyKit`**: **CoreML** + **Vision** (`VNCoreMLRequest`), **YOLOv8n** exported with **NMS** (`scripts/export_coreml.py` → `yolov8n.mlpackage`), **`FramePayload`** / **`DetectedObjectDTO`** `Codable` types matching Section 4, **`OnDeviceVisionEngine`** (serial queue, **~15 Hz** emit cap, **drop** if inference still running, `VNImageOption.preferBackgroundProcessing`), **`BlindGuySession`** (`ObservableObject`, `@Published lastPayload`) for SwiftUI. **Lens / smudge:** `LensQualityAnalyzer` + **`LensWarningAnnouncer`** (iOS, `AVSpeechSynthesizer`, cooldown). Integrate: add local package in Xcode, bundle **`yolov8n.mlpackage`** in the **app** target, `AVCaptureVideoDataOutput` → `CVPixelBuffer` → `session.ingest(...)`. See **`ios/README.md`**. |
+| **iOS on-device (Swift / SwiftUI)** | Swift package **`ios/BlindGuyKit`**: **CoreML** + **Vision** (`VNCoreMLRequest`), **YOLOv8m-oiv7** exported with **NMS** (`scripts/export_coreml.py` → `yolov8m-oiv7.mlpackage` under **`App/`**), **`FramePayload`** / **`DetectedObjectDTO`** `Codable` types matching Section 4, **`OnDeviceVisionEngine`** (serial queue, **~15 Hz** emit cap, **drop** if inference still running, `VNImageOption.preferBackgroundProcessing`), **`BlindGuySession`** (`ObservableObject`, `@Published lastPayload`) for SwiftUI. **Lens / smudge:** `LensQualityAnalyzer` + **`LensWarningAnnouncer`** (iOS, `AVSpeechSynthesizer`, cooldown). Integrate: add local package in Xcode, bundle **`yolov8m-oiv7.mlpackage`** in the **app** target, `AVCaptureVideoDataOutput` → `CVPixelBuffer` → `session.ingest(...)`. See **`ios/README.md`**. |
 | **Tests** | **Pytest** (`tests/`, `pytest.ini`); **`python -m visual_engine.testing_engine`** in-process smokes; `validate_frame_payload` for schema. |
 | **Smudge / dirty lens (Python + iOS)** | Laplacian variance on a downscaled grayscale frame; if below **`lens_laplacian_threshold` for N consecutive** frames, set `lens_status: warning` and a **`lens_announce`** string. Tuned via `VisualConfig` / `VisionConfiguration`. |
 
@@ -335,7 +335,7 @@ This section is the **living index** of what exists in the repo today. Update it
 
 | Module | Purpose |
 |--------|---------|
-| `config.py` | `VisualConfig`: YOLO path, COCO class subset, `confidence_threshold`, `min_bbox_area_fraction_in_frame`, height table, `focal_length_px`, **lens** toggles and thresholds, emit/rate and tracking knobs. |
+| `config.py` | `VisualConfig`: YOLO path (`yolov8m-oiv7.pt`), Open Images V7 class subset, `confidence_threshold`, `min_bbox_area_fraction_in_frame`, height table, `focal_length_px`, **lens** toggles and thresholds, emit/rate and tracking knobs. |
 | `contracts.py` | `DetectedObject`, `BBoxNorm`, `make_frame_payload` (optional **`camera`** block). |
 | `vision_engine.py` | YOLO inference, pan/distance, `VisionResult`. |
 | `tracker.py` | `object_id` + `velocity_mps` + `priority`. |
@@ -360,8 +360,8 @@ This section is the **living index** of what exists in the repo today. Update it
 | `Package.swift` | iOS 16+ (and macOS 13+ for `swift build` of the library on a dev machine). |
 | `ContractModels.swift` | `FramePayload`, `DetectedObjectDTO`, **`CameraHealthDTO`**, `BBoxNorm` (snake_case JSON). |
 | `VisionConfiguration.swift` | Mirrors Python tuning: classes, conf, heights, focal, **lens** fields, 15Hz-style `minEmitInterval`. |
-| `COCOMapping.swift` | COCO index / name for Vision labels. |
-| `CoreMLDetector.swift` | Load `yolov8n` from bundle, `VNCoreMLRequest`, `VNRecognizedObjectObservation` → `RawDetection`, COCO id → name, min visible bbox area in frame. |
+| `OpenImagesV7Mapping.swift` | Open Images V7 (601) index / name for Vision labels. |
+| `CoreMLDetector.swift` | Load `yolov8m-oiv7` from bundle, `VNCoreMLRequest`, `VNRecognizedObjectObservation` → `RawDetection`, OIV7 id → name, min visible bbox area in frame. |
 | `ObjectTracker.swift` | Same ID/velocity/priority story as Python. |
 | `VisionGeometry.swift` | Vision bbox → PRD pan/distance. |
 | `OnDeviceVisionEngine.swift` | CoreML+Vision + tracker + **lens** on each emitted frame; backpressure and rate cap. |
@@ -371,7 +371,7 @@ This section is the **living index** of what exists in the repo today. Update it
 
 **`ios/README.md`:** add package to Xcode, **export CoreML** (`scripts/export_coreml.py`), camera wiring, **lens** + TTS, performance notes, testing note (Xcode vs CLI).
 
-**`scripts/export_coreml.py`:** Ultralytics `yolov8n` → `yolov8n.mlpackage` with **NMS** for Vision.
+**`scripts/export_coreml.py`:** Ultralytics `yolov8m-oiv7` → `App/yolov8m-oiv7.mlpackage` with **NMS** for Vision.
 
 ### Implementation changelog (high level)
 

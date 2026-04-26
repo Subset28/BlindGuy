@@ -16,7 +16,7 @@ This document is intentionally long and explicit so the team can execute without
 
 ### Current maturity
 
-- **Vision core**: working (YOLOv8n, on-device CoreML and Python parity).
+- **Vision core**: working (YOLOv8m Open Images V7, on-device CoreML and Python parity).
 - **TTS guidance**: working and improved (queue/stack scheduler, dedupe, distance phrases).
 - **Distance estimation**: heuristic and partially hardened (clamps, sanity bounds), not yet robust enough for production safety claims.
 - **UX flow**: usable demo flow, not yet polished enough for broad user testing.
@@ -39,7 +39,7 @@ Before further coding, lock these decisions in writing:
 2. **Distance trust language**:
    - "Estimated distance" (not exact).
 3. **Supported hazard classes**:
-   - Confirm final COCO subset and what is out-of-scope.
+   - Confirm final Open Images V7 subset and what is out-of-scope.
 4. **Operating assumptions**:
    - Camera mount position, lighting expectations, movement speed assumptions.
 5. **Safety disclaimer**:

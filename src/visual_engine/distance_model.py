@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-# Tables mirror `VisionConfiguration` defaults in BlindGuyKit (COCO + PRD allowlist).
+# Tables mirror `VisionConfiguration` defaults in BlindGuyKit (Open Images V7 allowlist).
 KNOWN_HEIGHTS_M: dict[str, float] = {
     "person": 1.70,
     "car": 1.50,
@@ -15,11 +15,11 @@ KNOWN_HEIGHTS_M: dict[str, float] = {
     "dog": 0.50,
     "cat": 0.30,
     "chair": 0.90,
-    "dining table": 0.75,
+    "kitchen & dining room table": 0.75,
     "laptop": 0.24,
-    "cell phone": 0.15,
+    "mobile phone": 0.15,
     "bottle": 0.25,
-    "cup": 0.12,
+    "coffee cup": 0.12,
     "backpack": 0.55,
     "suitcase": 0.65,
     "traffic light": 0.90,
@@ -28,8 +28,15 @@ KNOWN_HEIGHTS_M: dict[str, float] = {
     "bench": 0.90,
     "umbrella": 1.00,
     "couch": 0.90,
-    "potted plant": 0.6,
+    "plant": 0.6,
     "handbag": 0.3,
+    "television": 0.50,
+    "computer keyboard": 0.05,
+    "computer mouse": 0.04,
+    "remote control": 0.03,
+    "stairs": 0.25,
+    "waste container": 0.9,
+    "computer monitor": 0.45,
 }
 
 KNOWN_WIDTHS_M: dict[str, float] = {
@@ -40,23 +47,30 @@ KNOWN_WIDTHS_M: dict[str, float] = {
     "motorcycle": 1.00,
     "bicycle": 1.70,
     "couch": 1.80,
-    "dining table": 1.20,
+    "kitchen & dining room table": 1.20,
     "laptop": 0.32,
     "dog": 0.60,
     "cat": 0.40,
     "bench": 1.50,
     "suitcase": 0.45,
     "chair": 0.55,
-    "potted plant": 0.45,
+    "plant": 0.45,
     "backpack": 0.4,
     "handbag": 0.4,
-    "cell phone": 0.08,
+    "mobile phone": 0.08,
     "bottle": 0.08,
-    "cup": 0.1,
+    "coffee cup": 0.1,
     "umbrella": 0.9,
     "traffic light": 0.4,
     "fire hydrant": 0.45,
     "stop sign": 0.6,
+    "television": 0.9,
+    "computer keyboard": 0.45,
+    "computer mouse": 0.1,
+    "remote control": 0.08,
+    "stairs": 1.2,
+    "waste container": 0.45,
+    "computer monitor": 0.55,
 }
 
 

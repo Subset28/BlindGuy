@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Export Ultralytics YOLOv8n (COCO) to CoreML with NMS for Vision (iOS).
+"""Export Ultralytics YOLOv8m Open Images V7 to CoreML with NMS for Vision (iOS).
 
 Run from repo root: pip install -r requirements.txt && python3 scripts/export_coreml.py
 
-Output: yolov8n.mlpackage (renamed in cwd if the exporter returns a different stem).
-Add to the Xcode app target Copy Bundle Resources.
+Output: `yolov8m-oiv7.mlpackage` in the repo root and copied to `App/` for the synchronized Xcode group.
 """
 
 from __future__ import annotations
@@ -14,8 +13,9 @@ from pathlib import Path
 
 from ultralytics import YOLO
 
-PT_FILE = "yolov8n.pt"
-BUNDLE_STEM = "yolov8n"
+REPO = Path(__file__).resolve().parents[1]
+PT_FILE = "yolov8m-oiv7.pt"
+BUNDLE_STEM = "yolov8m-oiv7"
 
 
 def main() -> None:
@@ -35,9 +35,15 @@ def main() -> None:
             shutil.rmtree(dest)
         out_path.rename(dest)
         print("Renamed to:", dest)
+    app_dest = REPO / "App" / f"{BUNDLE_STEM}.mlpackage"
+    if app_dest.exists():
+        shutil.rmtree(app_dest)
+    shutil.copytree(dest, app_dest)
+    shutil.rmtree(dest)
+    print("Copied to:", app_dest, "(removed duplicate next to script cwd)")
     print(
-        f"Add {BUNDLE_STEM}.mlpackage to the iOS app target (Copy Bundle Resources), "
-        f"or BlindGuyKit Resources if you bundle the model in the package."
+        f"Ensure {BUNDLE_STEM}.mlpackage is included in the iOS app target "
+        f"(repo `App/` folder is synchronized into the BlindGuy target)."
     )
 
 

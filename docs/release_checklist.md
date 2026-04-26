@@ -2,7 +2,7 @@
 
 - [ ] **Owner: iOS** — App builds clean in Xcode for latest simulator and target device.
   - **Accept:** `xcodebuild` succeeds; no critical runtime crash on launch.
-- [ ] **Owner: ML** — `yolov8n.mlpackage` bundled and detected by app.
+- [ ] **Owner: ML** — `yolov8m-oiv7.mlpackage` bundled and detected by app.
   - **Accept:** model loads, scanning starts, detections appear.
 - [ ] **Owner: iOS** — TTS-only mode verified (no spatial audio behavior).
   - **Accept:** settings and UI copy match behavior.

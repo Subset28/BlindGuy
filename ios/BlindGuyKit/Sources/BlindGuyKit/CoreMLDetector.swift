@@ -23,7 +23,7 @@ public final class CoreMLDetector: @unchecked Sendable {
         }
     }
 
-    /// Bundle resource name without extension, e.g. `yolov8n` for `yolov8n.mlpackage`.
+    /// Bundle resource name without extension, e.g. `yolov8m-oiv7` for `yolov8m-oiv7.mlpackage`.
     public convenience init(modelResourceName: String, bundle: Bundle, config: VisionConfiguration = .default) throws {
         var url = bundle.url(forResource: modelResourceName, withExtension: "mlmodelc")
         if url == nil {
@@ -65,11 +65,10 @@ public final class CoreMLDetector: @unchecked Sendable {
         for obs in results {
             guard let top = obs.labels.first else { continue }
             let conf = top.confidence
-            guard conf >= config.confidenceThreshold else { continue }
-
             let rawName = labelString(from: top.identifier)
             let t = rawName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             guard config.targetClassNames.contains(t) else { continue }
+            guard conf >= config.confidenceThreshold(for: t) else { continue }
 
             let (xc, yc, w, h) = VisionGeometry.prdBoxFromVisionBoundingBox(obs.boundingBox)
             let visFrac = VisionGeometry.prdBboxVisibleAreaFraction(
@@ -79,6 +78,8 @@ public final class CoreMLDetector: @unchecked Sendable {
                 h: h
             )
             guard visFrac >= config.minBboxAreaFractionInFrame else { continue }
+            let areaNorm = w * h
+            guard areaNorm >= config.minBoxAreaFraction(for: t) else { continue }
 
             let (dRaw, _) = VisionGeometry.estimateMonocularDistanceM(
                 widthNorm: w,
@@ -110,8 +111,8 @@ public final class CoreMLDetector: @unchecked Sendable {
 
     private func labelString(from identifier: String) -> String {
         let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let i = Int(trimmed), i >= 0, i < COCOMapping.classNames.count {
-            return COCOMapping.classNames[i].lowercased()
+        if let i = Int(trimmed), i >= 0, i < OpenImagesV7Mapping.classNames.count {
+            return OpenImagesV7Mapping.classNames[i].lowercased()
         }
         return trimmed.lowercased()
     }

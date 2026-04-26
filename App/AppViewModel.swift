@@ -16,15 +16,10 @@ final class AppViewModel: ObservableObject {
     @Published var isScanning: Bool = false
     @Published var modelAvailable: Bool = false
 
-    /// YOLOv8n (COCO-80) + optional YOLOE-26n-seg open-vocab CoreML; second bundle must be exported with the same class list as `VisionConfiguration` (see `scripts/export_yoloe_open_vocab.py`).
+    /// YOLOv8m Open Images V7 (601 classes); CoreML from `scripts/export_coreml.py` → `yolov8m-oiv7.mlpackage`.
     private static func makeVisionEngine() -> OnDeviceVisionEngine? {
-        guard let primary = try? CoreMLDetector(modelResourceName: "yolov8n", bundle: .main) else { return nil }
-        let open: OpenVocabularyCoreMLDetector? = try? OpenVocabularyCoreMLDetector(
-            modelResourceName: "yoloe-26n-seg",
-            bundle: .main,
-            config: primary.config
-        )
-        return OnDeviceVisionEngine(primary: primary, openVocabulary: open)
+        guard let detector = try? CoreMLDetector(modelResourceName: "yolov8m-oiv7", bundle: .main) else { return nil }
+        return OnDeviceVisionEngine(detector: detector)
     }
 
     let hearing: HearingEngine

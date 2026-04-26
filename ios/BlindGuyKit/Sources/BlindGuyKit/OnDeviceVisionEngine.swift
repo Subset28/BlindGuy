@@ -11,19 +11,15 @@ import ARKit
 public final class OnDeviceVisionEngine: @unchecked Sendable {
     public let config: VisionConfiguration
     private let detector: CoreMLDetector
-    private let openVocabulary: OpenVocabularyCoreMLDetector?
     private var tracker: ObjectTracker
     private let workQueue: DispatchQueue
     private let stateLock = NSLock()
     private var frameId: Int = 0
     private var inFlight: Bool = false
     private var lastEmitTime: TimeInterval = 0
-    private let inferenceGate = FrameGate()
     private let lensState = LensStreakState()
     /// Single shared timer for the app pipeline (optional for tests / headless).
     public var pipelineTimer: PipelineTimer?
-    /// Fired when `inferenceGate.tryAcquire` fails — another frame is still in CoreML.
-    public var onInferenceGateDrop: (() -> Void)?
     /// Called on the vision work queue after each successfully built `FramePayload` (for perf rollups).
     public var onFrameEmittedForPerf: (() -> Void)?
     /// Stale track ids pruned from the object tracker (see `ObjectTracker`).
@@ -32,18 +28,11 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
     private var lastIntrinsics: CameraIntrinsics?
     #endif
 
-    /// YOLOv8n (COCO) only. Same as `init(primary:openVocabulary: nil)`.
-    public convenience init(detector: CoreMLDetector) {
-        self.init(primary: detector, openVocabulary: nil)
-    }
-
-    /// **Hybrid vision:** COCO (fast, accurate) + optional YOLOE CoreML (open-vocab prompts baked at export; see `export_yoloe_open_vocab.py`).
-    public init(primary: CoreMLDetector, openVocabulary: OpenVocabularyCoreMLDetector?) {
-        self.detector = primary
-        self.config = primary.config
-        self.openVocabulary = openVocabulary
+    public init(detector: CoreMLDetector) {
+        self.detector = detector
+        self.config = detector.config
         let tr = ObjectTracker(
-            highPriorityDistanceM: primary.config.highPriorityDistanceM
+            highPriorityDistanceM: detector.config.highPriorityDistanceM
         )
         self.tracker = tr
         self.workQueue = DispatchQueue(
@@ -121,7 +110,7 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
             guard let self else { return }
             self.stateLock.lock()
             defer { self.inFlight = false; self.stateLock.unlock() }
-            let rawCoco = self.detector.buildObservations(
+            let raw = self.detector.buildObservations(
                 from: request,
                 error: err,
                 imageWidth: w,
@@ -130,39 +119,8 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
             )
             self.frameId += 1
             let fid = self.frameId
-            var fused: [RawDetection] = rawCoco
-            if let ov = self.openVocabulary,
-               self.config.shouldRunOpenVocabularyPass(forFrameIndex: fid) {
-                let h2 = VNImageRequestHandler(
-                    cvPixelBuffer: captured,
-                    orientation: orientation,
-                    options: [:]
-                )
-                var rawOV: [RawDetection] = []
-                let r2 = ov.makeRequest { r, e2 in
-                    rawOV = ov.buildObservations(
-                        from: r,
-                        error: e2,
-                        imageWidth: w,
-                        imageHeight: h,
-                        intrinsics: merged
-                    )
-                }
-                do {
-                    try h2.perform([r2])
-                } catch {
-                    #if DEBUG
-                    print("BlindGuyKit open-vocab perform: \(error)")
-                    #endif
-                }
-                fused = DetectionMerge.mergeCocoWins(
-                    coco: rawCoco,
-                    open: rawOV,
-                    iouSuppressionThreshold: self.config.openVocabularySuppressIfCocoIou
-                )
-            }
             let t1 = CACurrentMediaTime()
-            let mapped = self.tracker.update(detections: fused, now: t1, frameIndex: fid)
+            let mapped = self.tracker.update(detections: raw, now: t1, frameIndex: fid)
             self.lastEmitTime = t1
             let visionMs = max(0, min(1_000_000, Int((t1 - t0) * 1000)))
 

@@ -14,6 +14,8 @@ This file is **append-only** (add new entries at the **top**). It records **visi
 
 ## 2026-04-25
 
+- **Vision model revamp:** **YOLOv8m Open Images V7** (`yolov8m-oiv7.pt`, CoreML **`yolov8m-oiv7.mlpackage`**) replaces **YOLOv8n** / COCO; **`OpenImagesV7Mapping`** (601 classes) replaces **`COCOMapping`**. Removed YOLOE hybrid (**`yoloe-26n-seg`**, **`OpenVocabularyCoreMLDetector`**, **`DetectionMerge`**). Python + iOS allowlists use OIV7 **lowercased** class strings; added **`scripts/gen_open_images_v7_mapping.py`**. **`export_coreml.py`** writes the bundle to **`App/`** only.
+
 - **Vision revert + frame gate (later same day):** back to **YOLOv8n** / COCO; removed YOLO-World path and `yolo_world_s`. **Python** `bbox_in_frame` + **iOS** `VisionGeometry.prdBboxVisibleAreaFraction` require most of the bbox area inside the image. **`App/yolo_world_s.mlpackage` removed;** re-exported **`yolov8n.mlpackage`**.
 
 - **Vision model (Python + iOS):** default weights **`yolov8s-worldv2.pt`** (YOLO-World) instead of **`yolov8n.pt`**; CoreML export script outputs **`yolo_world_s.mlpackage`**. iOS loads **`yolo_world_s`** from the bundle, with fallback to legacy **`yolov8n`**.

@@ -55,11 +55,13 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private var recentCriticalUtterances: [Date] = []
     private var featureToggleDebounce: DispatchWorkItem?
 
-    private let cooldownSameTrackSeconds: TimeInterval = 7.0
+    private let cooldownSameTrackSeconds: TimeInterval = 10.0
     private let cooldownSameSpatialCellSeconds: TimeInterval = 4.0
     private static let cooldownSameClassSeconds: TimeInterval = 4.0
     /// Large static furniture can split into many tracks; longer cooldown limits repeat labels.
     private static let cooldownSameFurnitureClassSeconds: TimeInterval = 10.0
+    /// Desk / screen objects share the spoken label "Computer" — one cue is enough while the scene stays stable.
+    private static let cooldownSameComputerPhraseSeconds: TimeInterval = 10.0
     private let minIntervalAnySpeechSeconds: TimeInterval = 0.85
     private let peopleGroupCooldownSeconds: TimeInterval = 7.0
     private let maxAnnouncementsPerFrame: Int = 1
@@ -67,6 +69,10 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private let itemTTLSeconds: TimeInterval = 1.8
     private let forcedSpeakFallbackSeconds: TimeInterval = 2.2
     private let noDetectionsAnnounceSeconds: TimeInterval = 10.0
+    private static let maxPanAnySpeech: Double = 0.62
+    private static let maxPanDefault: Double = 0.24
+    private static let maxPanImportant: Double = 0.42
+    private static let maxPanLowValue: Double = 0.10
 
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 0.066
@@ -290,6 +296,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         let pool = frame.objects
             .filter { $0.confidence >= Self.minConfidenceForSpeech }
             .filter { !BlindGuyFeatureFlags.suppressedClasses.contains($0.objectClass.lowercased()) }
+            .filter { Self.passesPanGate($0) }
             .sorted { Self.interestScore($0) > Self.interestScore($1) }
 
         if pool.count == 0 {
@@ -336,7 +343,13 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         // announce the top object periodically so users are never left with silent detections.
         if announceEach, emitted == 0, let top = pool.first {
             let now = Date()
-            if lastForcedSpeakAt == nil || now.timeIntervalSince(lastForcedSpeakAt!) >= forcedSpeakFallbackSeconds {
+            let speechCat = Self.speechDedupeCategory(forClassKey: top.objectClass.lowercased())
+            let phraseGap = Self.cooldownSecondsForSpeechCategory(speechCat, rawClassKey: top.objectClass.lowercased())
+            let recentlySpokeThisPhrase =
+                (lastSpokenByClass[speechCat]).map { now.timeIntervalSince($0) < phraseGap } ?? false
+            if recentlySpokeThisPhrase {
+                // Failsafe must not bypass phrase cooldowns (otherwise "Computer" every ~2s forever).
+            } else if lastForcedSpeakAt == nil || now.timeIntervalSince(lastForcedSpeakAt!) >= forcedSpeakFallbackSeconds {
                 let phrase = phraseForObject(top, includeDistance: includeDistance)
                 let forced = SpeechItem(
                     id: "forced|\(top.objectId)|\(Int(now.timeIntervalSince1970))",
@@ -346,6 +359,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
                 )
                 enqueue(forced)
                 lastForcedSpeakAt = now
+                markSpoken(obj: top, now: now)
             }
         }
 
@@ -553,9 +567,10 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
 
     private func pruneState(now: Date) {
         let cap: TimeInterval = 45
+        let classCap: TimeInterval = 10
         lastSpokenByObjectId = lastSpokenByObjectId.filter { now.timeIntervalSince($0.value) < cap }
         lastSpokenBySpatialKey = lastSpokenBySpatialKey.filter { now.timeIntervalSince($0.value) < cap }
-        lastSpokenByClass = lastSpokenByClass.filter { now.timeIntervalSince($0.value) < cap }
+        lastSpokenByClass = lastSpokenByClass.filter { now.timeIntervalSince($0.value) < classCap }
         lastSpokenSnapshotByObjectId = lastSpokenSnapshotByObjectId.filter { now.timeIntervalSince($0.value.at) < cap }
     }
 
@@ -579,6 +594,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             }
         }
         let classKey = obj.objectClass.lowercased()
+        let speechCat = Self.speechDedupeCategory(forClassKey: classKey)
         if classKey == "person" {
             if let last = lastPeopleGroupSpokenAt, now.timeIntervalSince(last) < peopleGroupCooldownSeconds {
                 telemetryDrop(.dedupe)
@@ -586,8 +602,8 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             }
             lastPeopleGroupSpokenAt = now
         }
-        let classGap = Self.cooldownSecondsForClass(classKey)
-        if let last = lastSpokenByClass[classKey], now.timeIntervalSince(last) < classGap {
+        let classGap = Self.cooldownSecondsForSpeechCategory(speechCat, rawClassKey: classKey)
+        if let last = lastSpokenByClass[speechCat], now.timeIntervalSince(last) < classGap {
             telemetryDrop(.dedupe)
             return false
         }
@@ -602,7 +618,8 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private func markSpoken(obj: DetectedObjectDTO, now: Date) {
         dedupePolicy.recordSpoken(objectID: obj.objectId, objectClass: obj.objectClass)
         lastSpokenByObjectId[obj.objectId] = now
-        lastSpokenByClass[obj.objectClass.lowercased()] = now
+        let speechCat = Self.speechDedupeCategory(forClassKey: obj.objectClass.lowercased())
+        lastSpokenByClass[speechCat] = now
         lastSpokenBySpatialKey[Self.spatialDedupeKey(obj: obj)] = now
         lastSpokenSnapshotByObjectId[obj.objectId] = SpokenSnapshot(
             distanceM: obj.distanceM,
@@ -612,10 +629,21 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     }
 
     private static func spatialDedupeKey(obj: DetectedObjectDTO) -> String {
-        let c = obj.objectClass.lowercased()
+        let c = speechDedupeCategory(forClassKey: obj.objectClass.lowercased())
         let x = Int((obj.bbox.xCenterNorm * 15.0).rounded())
         let y = Int((obj.bbox.yCenterNorm * 15.0).rounded())
         return "\(c)|\(x)|\(y)"
+    }
+
+    /// Groups raw classes that share the same `ObjectSpokenName` so we do not repeat "Computer" for keyboard vs monitor vs TV.
+    private static func speechDedupeCategory(forClassKey classKey: String) -> String {
+        ObjectSpokenName.phrase(classKey).lowercased()
+    }
+
+    private static func cooldownSecondsForSpeechCategory(_ category: String, rawClassKey: String) -> TimeInterval {
+        if category == "computer" { return cooldownSameComputerPhraseSeconds }
+        if longClassCooldownFurniture.contains(rawClassKey) { return cooldownSameFurnitureClassSeconds }
+        return cooldownSameClassSeconds
     }
 
     private static func interestScore(_ o: DetectedObjectDTO) -> Double {
@@ -631,24 +659,52 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         if t == "truck" || t == "bus" || t == "car" { return 3.0 }
         if t == "bicycle" || t == "motorcycle" { return 1.5 }
         if t == "person" { return 1.0 }
-        // Electronics / open-voc "computer" + COCO laptop, tv, …
-        if t == "laptop" || t == "tv" || t == "cell phone" || t == "computer" { return 2.0 }
-        if t == "keyboard" || t == "mouse" || t == "remote" { return 1.5 }
-        // Open-vocab hazards (demo: trash can, stairs).
-        if t == "stairs" || t == "trash can" { return 1.85 }
-        // Deprioritize vs. electronics for ranked speech when both appear (e.g. desk with monitor + table).
-        if t == "dining table" || t == "couch" || t == "chair" || t == "bench" || t == "bed" { return 0.78 }
+        // Electronics / display are intentionally lowest-priority to avoid repetitive desk chatter.
+        if t == "laptop" || t == "television" || t == "mobile phone" || t == "computer monitor" { return 0.35 }
+        if t == "computer keyboard" || t == "computer mouse" || t == "remote control" { return 0.30 }
+        if t == "stairs" || t == "waste container" { return 1.85 }
+        if t == "kitchen & dining room table" || t == "couch" || t == "chair" || t == "bench" { return 0.78 }
         return 1.0
     }
 
+    private static func passesPanGate(_ o: DetectedObjectDTO) -> Bool {
+        let panAbs = abs(o.panValue)
+        // Hard cap: never narrate extreme side detections.
+        if panAbs > maxPanAnySpeech { return false }
+
+        let t = o.objectClass.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let isLowValue = t == "chair"
+            || t == "couch"
+            || t == "bench"
+            || t == "kitchen & dining room table"
+            || t == "plant"
+            || t == "coffee cup"
+
+        if isLowValue {
+            return panAbs <= maxPanLowValue
+        }
+
+        let isImportantClass = t == "truck"
+            || t == "bus"
+            || t == "car"
+            || t == "motorcycle"
+            || t == "bicycle"
+            || t == "person"
+            || t == "stairs"
+            || t == "waste container"
+
+        let isHighPriority = o.priority.uppercased() == "HIGH"
+        if isHighPriority || isImportantClass {
+            return panAbs <= maxPanImportant
+        }
+
+        return panAbs <= maxPanDefault
+    }
+
     private static let longClassCooldownFurniture: Set<String> = [
-        "dining table", "couch", "chair", "bed", "bench", "potted plant"
+        "kitchen & dining room table", "couch", "chair", "bench", "plant",
     ]
 
-    private static func cooldownSecondsForClass(_ classKey: String) -> TimeInterval {
-        if longClassCooldownFurniture.contains(classKey) { return cooldownSameFurnitureClassSeconds }
-        return cooldownSameClassSeconds
-    }
 
     /// Picks a voice for the current "Voice" setting. "Compact" prefers small on-device (default) voices, not the soothing sort.
     private func preferredVoice() -> AVSpeechSynthesisVoice? {

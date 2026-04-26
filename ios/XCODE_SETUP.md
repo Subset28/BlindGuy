@@ -27,7 +27,7 @@ With **`../App`** synchronized into the app target, all Swift files there are co
 ## 4. CoreML model
 
 1. From repo root: `python3 scripts/export_coreml.py` (see `ios/README.md`).
-2. Drag **`yolov8n.mlpackage`** (output of `export_coreml.py`) into the **app** target and ensure **Copy items** + **BlindGuy** target membership.
+2. Ensure **`yolov8m-oiv7.mlpackage`** is under **`App/`** (run `python3 scripts/export_coreml.py` from repo root). The Xcode project syncs `App/` into the **BlindGuy** target.
 
 Without the model, the app still runs **hearing** by polling the Python **`GET /frame`** endpoint (Settings → Development).
 

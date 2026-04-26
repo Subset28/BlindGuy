@@ -1,19 +1,18 @@
-# Ultralytics download (re-export with scripts/export_coreml.py)
+# Ultralytics weights (re-export CoreML with scripts/export_coreml.py)
+yolov8m-oiv7.pt
+
+# Legacy weights (do not commit)
 yolov8n.pt
+yolov8s-worldv2.pt
 yoloe-26n-seg.pt
 
-# YOLOE / open-voc export cache (242MB+; never commit)
-mobileclip2_b.ts
+# Export/build caches and local artifacts
 scripts/.yoloe_export_work/
-
-.venv/
-__pycache__/
-*.pyc
+**/__pycache__/
+*.py[cod]
 .DS_Store
-.swiftpm/
-build/
-DerivedData/
-*.xcodeproj/xcuserdata/
-*.xcworkspace/xcuserdata/
-xcuserdata/
-**/.build/
+ios/BlindGuyKit/.build/
+ios/BlindGuyKit/.swiftpm/xcode/xcuserdata/
+BlindGuy/BlindGuy.xcodeproj/xcuserdata/
+BlindGuy/BlindGuy.xcodeproj/project.xcworkspace/xcuserdata/
+mobileclip2_b.ts
