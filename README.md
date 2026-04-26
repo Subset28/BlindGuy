@@ -5,7 +5,7 @@
 ```
   ╔═══════════════════════════════════════════════════════════╗
   ║                                                           ║
-  ║              ◉  B L I N D G U Y   E N G I N E            ║
+  ║              ◉  DualSight   E N G I N E            ║
   ║                                                           ║
   ║      Hearing Through Sight  |  On-Device First           ║
   ║                                                           ║
@@ -29,7 +29,7 @@
 
 Most assistive tools solve one narrow problem at a time. Real life is not narrow.
 
-BlindGuy is built for fast, crowded, unpredictable spaces where important things can be silent, partially visible, and moving. We wanted a system that can:
+DualSight is built for fast, crowded, unpredictable spaces where important things can be silent, partially visible, and moving. We wanted a system that can:
 
 - understand what is in front of the user,
 - estimate where it is (left/right and distance),
@@ -43,7 +43,7 @@ we are **cloning human eyes into an always-on perception engine** that can speak
 
 ---
 
-## The BlindGuy Experience
+## The DualSight Experience
 
 When the app runs, the phone camera feeds an on-device vision pipeline. The hearing engine converts detections into concise spoken cues with dedupe, cooldowns, priority logic, and strict pan gating to reduce noise.
 
@@ -62,7 +62,7 @@ Tracking preserves `object_id` and estimates `velocity_mps` between frames. Near
 ## Architecture (Repo Map)
 
 - `App/` - iOS app runtime (`AppViewModel`, `HearingEngine`, UI, model bundle)
-- `ios/BlindGuyKit/` - reusable Swift package (camera pipeline, detector, tracker, payload models)
+- `ios/DualSightKit/` - reusable Swift package (camera pipeline, detector, tracker, payload models)
 - `src/visual_engine/` - Python reference engine + Flask bridge
 - `docs/` - PRD, contract, wiring docs, release checklist, vision changelog
 - `scripts/` - model export + class mapping generation
