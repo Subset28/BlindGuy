@@ -183,27 +183,27 @@ final class ObjectTracker {
     var onStalePrune: ((Int) -> Void)?
 }
 
-struct RawDetection {
-    var className: String
-    var confidence: Double
-    var xCenterNorm: Double
-    var yCenterNorm: Double
-    var widthNorm: Double
-    var heightNorm: Double
-    var distanceM: Double
-    var panValue: Double
+public struct RawDetection {
+    public var className: String
+    public var confidence: Double
+    public var xCenterNorm: Double
+    public var yCenterNorm: Double
+    public var widthNorm: Double
+    public var heightNorm: Double
+    public var distanceM: Double
+    public var panValue: Double
 }
 
-struct TrackedDetection {
-    var className: String
-    var confidence: Double
-    var xCenterNorm: Double
-    var yCenterNorm: Double
-    var widthNorm: Double
-    var heightNorm: Double
-    var distanceM: Double
-    var panValue: Double
-    var objectId: String
-    var velocityMps: Double
-    var priority: String
+public struct TrackedDetection {
+    public var className: String
+    public var confidence: Double
+    public var xCenterNorm: Double
+    public var yCenterNorm: Double
+    public var widthNorm: Double
+    public var heightNorm: Double
+    public var distanceM: Double
+    public var panValue: Double
+    public var objectId: String
+    public var velocityMps: Double
+    public var priority: String
 }

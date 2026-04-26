@@ -3,7 +3,7 @@ import BlindGuyKit
 
 struct RadarView: View {
     /// Real-time hazard payload from the Vision Engine
-    var objects: [TrackedDetection]
+    var objects: [DetectedObjectDTO]
     /// Whether a critical threat is currently active
     var alertActive: Bool
 
@@ -84,7 +84,7 @@ struct RadarView: View {
                 // ── Alert ring flash ─────────────────────────────────────────
                 if alertActive {
                     Circle()
-                        .stroke(BlindGuyTheme.critical.opacity(0.5), lineWidth: 2)
+                        .stroke(BlindGuyTheme.warmAlert.opacity(0.5), lineWidth: 2)
                         .frame(width: size * 0.92, height: size * 0.92)
                         .animation(
                             .easeInOut(duration: 0.4).repeatForever(autoreverses: true),
@@ -101,13 +101,13 @@ struct RadarView: View {
     // MARK: - Helpers
 
     private var sweepColor: Color {
-        alertActive ? BlindGuyTheme.critical : BlindGuyTheme.accent
+        alertActive ? BlindGuyTheme.warmAlert : BlindGuyTheme.accent
     }
 
     private var ringColor: Color { BlindGuyTheme.accent }
 
     /// Maps the real world 3D position to the 2D radar plane
-    private func position(for obj: TrackedDetection, in size: CGFloat, center: CGPoint) -> CGPoint {
+    private func position(for obj: DetectedObjectDTO, in size: CGFloat, center: CGPoint) -> CGPoint {
         // Pan goes from -1 (far left) to +1 (far right).
         // Let's map that to an angle arc of -38° to +38° relative to top-center (0°)
         let angleDegrees = obj.panValue * 38.0

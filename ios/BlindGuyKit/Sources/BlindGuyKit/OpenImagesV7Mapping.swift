@@ -4,8 +4,8 @@
 import Foundation
 
 /// Open Images V7 class index → name for Vision numeric labels (`"0"`, `"1"`, …).
-enum OpenImagesV7Mapping {
-    static let classNames: [String] = [
+public enum OpenImagesV7Mapping {
+    public static let classNames: [String] = [
         "Accordion",
         "Adhesive tape",
         "Aircraft",
