@@ -321,8 +321,14 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
 
         let pool = frame.objects
             .filter { obj in
-                let isHigh = DetectionConfig.highPriorityClasses.contains(obj.objectClass.lowercased())
-                let threshold = isHigh ? 0.45 : Self.minConfidenceForSpeech
+                let tier = Self.safetyTier(for: obj.objectClass)
+                let threshold: Double
+                switch tier {
+                case .critical: threshold = 0.45
+                case .obstacle: threshold = 0.52
+                case .context:  threshold = 0.60
+                case .lowValue: threshold = 0.72
+                }
                 return obj.confidence >= threshold
             }
             .filter { !BlindGuyFeatureFlags.suppressedClasses.contains($0.objectClass.lowercased()) }
@@ -750,17 +756,55 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         return w * pri * centerBias * (1.0 / d) * (0.55 + 0.45 * min(1.0, o.confidence))
     }
 
+    private enum SafetyTier {
+        case critical, obstacle, context, lowValue
+    }
+
+    private static func safetyTier(for raw: String) -> SafetyTier {
+        let t = raw.lowercased()
+        
+        // Tier 1: Critical Hazards (Life & Limb)
+        let criticalKeywords = [
+            "person", "man", "woman", "boy", "girl",
+            "car", "truck", "bus", "train", "ambulance", "vehicle", "aircraft", "airplane",
+            "bicycle", "motorcycle",
+            "dog", "animal", "bear", "bull", "lion", "tiger", "horse", "elephant",
+            "traffic light", "traffic sign", "stop sign", "fire hydrant",
+            "stairs", "staircase", "escalator"
+        ]
+        if criticalKeywords.contains(where: { t.contains($0) }) { return .critical }
+        
+        // Tier 2: Mobility Obstacles (Tripping & Path)
+        let obstacleKeywords = [
+            "chair", "table", "couch", "bench", "bed", "furniture", "desk", "stool",
+            "door", "window", "gate", "fence", "wall",
+            "waste container", "trash", "bin",
+            "cart", "stroller", "wheelchair"
+        ]
+        if obstacleKeywords.contains(where: { t.contains($0) }) { return .obstacle }
+        
+        // Tier 4: Low-Value / Noise (Electronics & Small items)
+        let lowValueKeywords = [
+            "laptop", "television", "phone", "monitor", "keyboard", "mouse", "remote", "camera", "tablet",
+            "cup", "bowl", "plate", "fork", "knife", "spoon", "glass", "bottle",
+            "book", "magazine", "paper", "pen", "pencil",
+            "toy", "ball", "doll", "game",
+            "clothing", "shoe", "boot", "hat", "sock", "shirt", "pants"
+        ]
+        if lowValueKeywords.contains(where: { t.contains($0) }) { return .lowValue }
+        
+        // Tier 3: Everything else (Buildings, Plants, etc.)
+        return .context
+    }
+
     private static func classImportance(_ raw: String) -> Double {
-        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if t == "truck" || t == "bus" || t == "car" { return 3.0 }
-        if t == "bicycle" || t == "motorcycle" { return 1.5 }
-        if t == "person" { return 2.0 }
-        // Electronics / display are now medium-priority so they are mentioned when looking directly at them.
-        if t == "laptop" || t == "television" || t == "mobile phone" || t == "computer monitor" { return 0.85 }
-        if t == "computer keyboard" || t == "computer mouse" || t == "remote control" { return 0.40 }
-        if t == "stairs" || t == "waste container" { return 1.85 }
-        if t == "kitchen & dining room table" || t == "couch" || t == "chair" || t == "bench" { return 0.78 }
-        return 1.0
+        let tier = safetyTier(for: raw)
+        switch tier {
+        case .critical: return 3.5
+        case .obstacle: return 2.2
+        case .context:  return 1.0
+        case .lowValue: return 0.15
+        }
     }
 
     private static func passesPanGate(_ o: DetectedObjectDTO) -> Bool {
