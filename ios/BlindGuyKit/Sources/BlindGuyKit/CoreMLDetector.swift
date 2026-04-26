@@ -12,11 +12,16 @@ public enum ModelLoadError: Error {
 public final class CoreMLDetector: @unchecked Sendable {
     public let config: VisionConfiguration
     private let visionModel: VNCoreMLModel
+    private var cachedRequest: VNCoreMLRequest?
 
     public init(modelURL: URL, config: VisionConfiguration = .default) throws {
         self.config = config
         do {
-            let m = try MLModel(contentsOf: modelURL)
+            let config = MLModelConfiguration()
+            config.computeUnits = .all // Priority to ANE (Apple Neural Engine)
+            config.allowLowPrecisionAccumulationOnGPU = true
+            
+            let m = try MLModel(contentsOf: modelURL, configuration: config)
             self.visionModel = try VNCoreMLModel(for: m)
         } catch {
             throw ModelLoadError.modelLoadFailed(error)
@@ -38,9 +43,13 @@ public final class CoreMLDetector: @unchecked Sendable {
     public func makeRequest(
         handler: @escaping VNRequestCompletionHandler
     ) -> VNCoreMLRequest {
+        if let cached = cachedRequest {
+            return cached
+        }
         let r = VNCoreMLRequest(model: visionModel, completionHandler: handler)
         r.imageCropAndScaleOption = .scaleFill
         r.preferBackgroundProcessing = true
+        self.cachedRequest = r
         return r
     }
 

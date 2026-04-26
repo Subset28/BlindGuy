@@ -17,6 +17,12 @@ struct ContentView: View {
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
             } else {
                 mainDashboard
+                    .onAppear {
+                        // Auto-start scanning if model is ready, reducing friction for blind users
+                        if app.modelAvailable && !app.isScanning {
+                            app.setScanning(true)
+                        }
+                    }
                     .sheet(isPresented: $showingSettings) {
                         SettingsView()
                             .environmentObject(app)
@@ -287,14 +293,15 @@ struct ContentView: View {
                     app.setScanning(!app.isScanning)
                 }
             } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: app.isScanning ? "stop.fill" : "camera.fill")
-                    Text(app.isScanning ? "Stop camera" : "Start camera")
-                        .fontWeight(.semibold)
+                HStack(spacing: 16) {
+                    Image(systemName: app.isScanning ? "stop.circle.fill" : "camera.circle.fill")
+                        .font(.system(size: 32, weight: .bold))
+                    Text(app.isScanning ? "STOP SCANNING" : "START SCANNING")
+                        .font(.title2.weight(.black))
+                        .tracking(1.5)
                 }
-                .font(.headline)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 18)
+                .padding(.vertical, 32) // Massive tap target for accessibility
             }
             .buttonStyle(PrimaryDockButtonStyle(isOn: app.isScanning, enabled: app.modelAvailable))
             .disabled(!app.modelAvailable)

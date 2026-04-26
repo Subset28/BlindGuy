@@ -7,7 +7,6 @@ struct RadarView: View {
     /// Whether a critical threat is currently active
     var alertActive: Bool
 
-    @State private var sweep: Double = 0
     @State private var pingScale: CGFloat = 0.5
     @State private var pingOpacity: Double = 0.8
 
@@ -47,29 +46,8 @@ struct RadarView: View {
                 .stroke(ringColor.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
 
                 // ── Sweep arm (Scanner beam) ─────────────────────────────────
-                ZStack {
-                    Path { p in
-                        p.move(to: center)
-                        p.addLine(to: CGPoint(
-                            x: center.x + CGFloat(sin(sweepRadians)) * maxRadius,
-                            y: center.y - CGFloat(cos(sweepRadians)) * maxRadius
-                        ))
-                    }
-                    .stroke(
-                        LinearGradient(
-                            colors: [sweepColor.opacity(0.6), .clear],
-                            startPoint: .init(x: 0.5, y: 1.0),
-                            endPoint: .init(x: 0.5, y: 0.0)
-                        ),
-                        lineWidth: 3
-                    )
-                }
-                .onAppear {
-                    // Oscillating sweep instead of 360 circle
-                    withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                        sweep = 50 // Sweeps from -50 to +50 degrees
-                    }
-                }
+                RadarSweepLine(maxRadius: maxRadius, sweepColor: sweepColor)
+                    .position(center)
 
                 // ── Object blips ─────────────────────────────────────────────
                 ForEach(objects, id: \.objectId) { obj in
@@ -108,10 +86,6 @@ struct RadarView: View {
 
     // MARK: - Helpers
 
-    private var sweepRadians: Double {
-        sweep * .pi / 180.0
-    }
-
     private var sweepColor: Color {
         alertActive ? BlindGuyTheme.warmAlert : BlindGuyTheme.accent
     }
@@ -136,6 +110,35 @@ struct RadarView: View {
         let y = center.y - CGFloat(cos(angleRadians)) * radius
         
         return CGPoint(x: x, y: y)
+    }
+}
+
+struct RadarSweepLine: View {
+    var maxRadius: CGFloat
+    var sweepColor: Color
+    @State private var sweep: Double = 0
+
+    var body: some View {
+        Path { p in
+            p.move(to: .zero)
+            p.addLine(to: CGPoint(
+                x: CGFloat(sin(sweep * .pi / 180.0)) * maxRadius,
+                y: -CGFloat(cos(sweep * .pi / 180.0)) * maxRadius
+            ))
+        }
+        .stroke(
+            LinearGradient(
+                colors: [sweepColor.opacity(0.6), .clear],
+                startPoint: .init(x: 0.5, y: 1.0),
+                endPoint: .init(x: 0.5, y: 0.0)
+            ),
+            lineWidth: 3
+        )
+        .onAppear {
+            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                sweep = 50
+            }
+        }
     }
 }
 
