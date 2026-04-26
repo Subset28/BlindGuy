@@ -320,7 +320,11 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         let announceEach = BlindGuyFeatureFlags.hearingTones
 
         let pool = frame.objects
-            .filter { $0.confidence >= Self.minConfidenceForSpeech }
+            .filter { obj in
+                let isHigh = DetectionConfig.highPriorityClasses.contains(obj.objectClass.lowercased())
+                let threshold = isHigh ? 0.45 : Self.minConfidenceForSpeech
+                return obj.confidence >= threshold
+            }
             .filter { !BlindGuyFeatureFlags.suppressedClasses.contains($0.objectClass.lowercased()) }
             .filter { Self.passesPanGate($0) }
             .sorted { Self.interestScore($0) > Self.interestScore($1) }
@@ -750,7 +754,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         let t = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if t == "truck" || t == "bus" || t == "car" { return 3.0 }
         if t == "bicycle" || t == "motorcycle" { return 1.5 }
-        if t == "person" { return 1.0 }
+        if t == "person" { return 2.0 }
         // Electronics / display are now medium-priority so they are mentioned when looking directly at them.
         if t == "laptop" || t == "television" || t == "mobile phone" || t == "computer monitor" { return 0.85 }
         if t == "computer keyboard" || t == "computer mouse" || t == "remote control" { return 0.40 }
