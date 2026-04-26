@@ -32,15 +32,18 @@ struct SettingsView: View {
                                 hearingTTS = true
                                 ttsVerbosity = "low"
                                 ttsVoiceStyle = "calm"
+                                app.hearing.speakImmediate("Calm mode active")
                             }
                             PresetButton(title: "Active", icon: "bolt.fill", color: BlindGuyTheme.accent) {
                                 hearingTTS = true
                                 ttsVerbosity = "normal"
                                 ttsVoiceStyle = "clear"
+                                app.hearing.speakImmediate("Full ocular sync active")
                             }
                             PresetButton(title: "Alerts Only", icon: "bell.badge.fill", color: BlindGuyTheme.warmAlert) {
                                 hearingTTS = false
                                 ttsCriticalOnly = true
+                                app.hearing.speakImmediate("High priority alerts only")
                             }
                         }
                         .listRowBackground(Color.clear)
@@ -51,10 +54,13 @@ struct SettingsView: View {
 
                     Section {
                         Toggle(isOn: $hearingTones) { Label("Identify Objects", systemImage: "text.bubble.fill") }
+                            .accessibilityHint("If on, the clone will speak the name of every detected object.")
                         Toggle(isOn: $hearingTTS) { Label("Speak Distance", systemImage: "ruler") }
+                            .accessibilityHint("If on, the clone will include distance estimates in every announcement.")
                         Toggle(isOn: $ttsCriticalOnly) {
                             Label("High-Priority Only", systemImage: "exclamationmark.triangle.fill")
                         }
+                        .accessibilityHint("If on, the clone will remain silent until a high-threat object is detected.")
                     } header: {
                         sectionHeader("Hearing Engine", icon: "ear")
                     } footer: {
