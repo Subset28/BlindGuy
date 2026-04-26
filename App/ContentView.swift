@@ -8,6 +8,8 @@ struct ContentView: View {
     @State private var showingSettings = false
     @AppStorage(BlindGuyFeatureKey.payloadHUD) private var showPayloadHUD: Bool = true
     @AppStorage(BlindGuyFeatureKey.haptics) private var hapticsOn: Bool = true
+    @AppStorage(BlindGuyFeatureKey.cameraFeed) private var showCameraFeed: Bool = false
+    @AppStorage(BlindGuyFeatureKey.spatialRadar) private var showSpatialRadar: Bool = false
     @State private var speechMutedBanner = false
 
     var body: some View {
@@ -218,7 +220,7 @@ struct ContentView: View {
     private var visualStage: some View {
         VStack(alignment: .leading, spacing: 20) {
             #if os(iOS)
-            if app.modelAvailable, app.isScanning, let session = app.captureSessionForPreview {
+            if shouldShowCameraPreview, let session = app.captureSessionForPreview {
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
                         Text("Camera feed")
@@ -242,7 +244,7 @@ struct ContentView: View {
             }
             #endif
             
-            if app.isScanning {
+            if shouldShowRadar {
                 radarContainer
             }
         }
@@ -307,8 +309,8 @@ struct ContentView: View {
                         .tracking(1.5)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(height: app.isScanning ? 88 : min(560, UIScreen.main.bounds.height * 1.00))
-                .padding(.vertical, app.isScanning ? 12 : 0)
+                .frame(height: currentDockHeight)
+                .padding(.vertical, currentDockHeight == dockCollapsedHeight ? 12 : 0)
             }
             .buttonStyle(PrimaryDockButtonStyle(isOn: app.isScanning, enabled: app.modelAvailable))
             .disabled(!app.modelAvailable)
@@ -332,9 +334,41 @@ struct ContentView: View {
 
     private var dockCollapsedHeight: CGFloat { 88 }
 
+    private var currentDockHeight: CGFloat {
+        guard app.isScanning else { return dockExpandedHeight }
+        return min(dockExpandedHeight, dockCollapsedHeight + hiddenVisualSurfaceHeight)
+    }
+
+    private var hiddenVisualSurfaceHeight: CGFloat {
+        var height: CGFloat = 0
+        if cameraFeedCouldRender && !showCameraFeed {
+            height += cameraSectionHeight
+        }
+        if !showSpatialRadar {
+            height += radarSectionHeight
+        }
+        return height
+    }
+
+    private var shouldShowCameraPreview: Bool {
+        showCameraFeed && cameraFeedCouldRender
+    }
+
+    private var cameraFeedCouldRender: Bool {
+        app.modelAvailable && app.isScanning
+    }
+
+    private var shouldShowRadar: Bool {
+        app.isScanning && showSpatialRadar
+    }
+
+    private var cameraSectionHeight: CGFloat { 262 }
+
+    private var radarSectionHeight: CGFloat { 342 }
+
     private var dockBottomPadding: CGFloat {
         // Add a little extra spacing so content doesn't butt right up to the dock
-        (app.isScanning ? dockCollapsedHeight : dockExpandedHeight) + 24
+        currentDockHeight + 24
     }
 }
 

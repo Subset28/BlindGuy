@@ -14,6 +14,8 @@ struct SettingsView: View {
     @AppStorage(BlindGuyFeatureKey.suppressedClassesCSV) private var suppressedClassesCSV: String = ""
     @AppStorage(BlindGuyFeatureKey.haptics) private var haptics: Bool = true
     @AppStorage(BlindGuyFeatureKey.payloadHUD) private var payloadHUD: Bool = true
+    @AppStorage(BlindGuyFeatureKey.cameraFeed) private var cameraFeed: Bool = false
+    @AppStorage(BlindGuyFeatureKey.spatialRadar) private var spatialRadar: Bool = false
     @AppStorage("blindguy.visionBridgeBaseURLString") private var bridgeURLString: String = "http://127.0.0.1:8765"
     @AppStorage("shouldShowOnboarding") private var shouldShowOnboarding: Bool = true
     @State private var showOptionalComputer: Bool = false
@@ -102,6 +104,12 @@ struct SettingsView: View {
                         Toggle(isOn: $haptics) { Label("Tactile Feedback", systemImage: "iphone.radiowaves.left.and.right") }
                             .accessibilityLabel("Tactile Feedback")
                             .accessibilityHint("Enables physical vibration patterns for nearby objects.")
+                        Toggle(isOn: $cameraFeed) { Label("Camera Feed", systemImage: "camera.fill") }
+                            .accessibilityLabel("Camera Feed")
+                            .accessibilityHint("Shows the live camera preview on the main dashboard while scanning.")
+                        Toggle(isOn: $spatialRadar) { Label("Spatial Radar", systemImage: "scope") }
+                            .accessibilityLabel("Spatial Radar")
+                            .accessibilityHint("Shows the radar view of nearby objects on the main dashboard while scanning.")
                         Toggle(isOn: $payloadHUD) { Label("Developer HUD", systemImage: "chart.bar.fill") }
                             .accessibilityLabel("Developer Head-Up Display")
                             .accessibilityHint("Shows technical vision data and latency on the main dashboard.")
@@ -264,6 +272,12 @@ struct SettingsView: View {
             HapticManager.shared.triggerDiscovery()
             app.hearing.speakImmediate(on ? "Tactile feedback on" : "Tactile feedback off")
             app.hearing.applyFeatureTogglesFromUserDefaults()
+        }
+        .onChange(of: cameraFeed) { on in
+            app.hearing.speakImmediate(on ? "Camera feed visible" : "Camera feed hidden")
+        }
+        .onChange(of: spatialRadar) { on in
+            app.hearing.speakImmediate(on ? "Spatial radar visible" : "Spatial radar hidden")
         }
         .onChange(of: ttsTelemetryEnabled) { on in
             TTSTelemetryStore.shared.setEnabled(on)

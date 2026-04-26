@@ -1,7 +1,7 @@
 import Foundation
 
-/// `UserDefaults` keys for the Settings menu. All features default **on** (first launch).
-/// Settings writes these; engines read them (Hearing, haptics, HUD).
+/// `UserDefaults` keys for the Settings menu.
+/// Settings writes these; engines read them (Hearing, haptics, HUD, visual surfaces).
 enum BlindGuyFeatureKey {
     static let hearingTones = "blindguy.feature.hearingTones"
     static let hearingTTS = "blindguy.feature.hearingTTS"
@@ -13,6 +13,8 @@ enum BlindGuyFeatureKey {
     static let suppressedClassesCSV = "blindguy.feature.suppressedClassesCSV"
     static let haptics = "blindguy.feature.haptics"
     static let payloadHUD = "blindguy.feature.payloadHUD"
+    static let cameraFeed = "blindguy.feature.cameraFeed"
+    static let spatialRadar = "blindguy.feature.spatialRadar"
 }
 
 enum BlindGuyFeatureFlags {
@@ -73,5 +75,13 @@ enum BlindGuyFeatureFlags {
 
     static var payloadHUD: Bool {
         d.object(forKey: BlindGuyFeatureKey.payloadHUD) == nil ? true : d.bool(forKey: BlindGuyFeatureKey.payloadHUD)
+    }
+
+    static var cameraFeed: Bool {
+        d.object(forKey: BlindGuyFeatureKey.cameraFeed) == nil ? false : d.bool(forKey: BlindGuyFeatureKey.cameraFeed)
+    }
+
+    static var spatialRadar: Bool {
+        d.object(forKey: BlindGuyFeatureKey.spatialRadar) == nil ? false : d.bool(forKey: BlindGuyFeatureKey.spatialRadar)
     }
 }
