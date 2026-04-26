@@ -1,4 +1,4 @@
-# BlindGuy ◉
+# DualSight ◉
 
 <div align="center">
 
