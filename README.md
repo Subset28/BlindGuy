@@ -56,7 +56,7 @@ When the app runs, the phone camera feeds an on-device vision pipeline. The hear
 
 ### 2) Motion + urgency awareness
 
-Tracking preserves `object_id` and estimates `velocity_mps` between frames. Nearby high-priority objects are escalated while low-value clutter is deprioritized**.
+**Tracking preserves `object_id` and estimates `velocity_mps` between frames. Nearby high-priority objects are escalated while low-value clutter is deprioritized**.
 ---
 
 ## Architecture (Repo Map)
