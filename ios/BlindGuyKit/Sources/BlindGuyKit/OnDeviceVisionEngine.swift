@@ -69,6 +69,9 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
     }
 
     private var consecutiveLidarFallbacks: [String: Int] = [:]
+    private var wallAheadHitStreak: Int = 0
+    private var wallAheadClearStreak: Int = 0
+    private var wallAheadActive: Bool = false
 
     private func processOnWorkQueue(
         pixelBuffer: CVPixelBuffer,
@@ -173,6 +176,46 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
                     )
                 )
             }
+            #if canImport(ARKit)
+            if capability == .lidar, let frame = arFrame as? ARFrame {
+                let wallProbe = self.sampleForwardWallDistance(from: frame)
+                if wallProbe.isWall {
+                    self.wallAheadHitStreak += 1
+                    self.wallAheadClearStreak = 0
+                    if self.wallAheadHitStreak >= 2 { self.wallAheadActive = true }
+                } else {
+                    self.wallAheadClearStreak += 1
+                    self.wallAheadHitStreak = 0
+                    if self.wallAheadClearStreak >= 2 { self.wallAheadActive = false }
+                }
+
+                if self.wallAheadActive {
+                    let dist = wallProbe.distanceM ?? 1.5
+                    dtos.append(
+                        DetectedObjectDTO(
+                            objectId: "wall_ahead",
+                            objectClass: "wall",
+                            confidence: 0.92,
+                            bbox: BBoxNorm(
+                                xCenterNorm: 0.5,
+                                yCenterNorm: 0.5,
+                                widthNorm: 0.9,
+                                heightNorm: 0.9
+                            ),
+                            distanceM: dist,
+                            distanceConfidence: .high,
+                            panValue: 0,
+                            velocityMps: 0,
+                            priority: dist < self.config.highPriorityDistanceM ? "HIGH" : "NORMAL"
+                        )
+                    )
+                }
+            } else {
+                self.wallAheadHitStreak = 0
+                self.wallAheadClearStreak = 0
+                self.wallAheadActive = false
+            }
+            #endif
             let cam: CameraHealthDTO? = {
                 guard self.config.enableLensCheck else { return nil }
                 let lap = LensQualityAnalyzer.laplacianVariance(
@@ -218,6 +261,65 @@ public final class OnDeviceVisionEngine: @unchecked Sendable {
             )
             self.stateLock.unlock()
             self.lensState.reset()
+            self.wallAheadHitStreak = 0
+            self.wallAheadClearStreak = 0
+            self.wallAheadActive = false
         }
     }
+
+    #if canImport(ARKit)
+    /// Lightweight forward obstacle probe from LiDAR depth.
+    /// Treat as "wall ahead" when enough near-depth samples are present in the center viewport.
+    private func sampleForwardWallDistance(from frame: ARFrame) -> (isWall: Bool, distanceM: Double?) {
+        guard let depthData = frame.smoothedSceneDepth else {
+            return (false, nil)
+        }
+        let depthMap = depthData.depthMap
+        CVPixelBufferLockBaseAddress(depthMap, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(depthMap, .readOnly) }
+
+        let w = CVPixelBufferGetWidth(depthMap)
+        let h = CVPixelBufferGetHeight(depthMap)
+        guard let ptr = CVPixelBufferGetBaseAddress(depthMap) else {
+            return (false, nil)
+        }
+        let depthFloats = ptr.bindMemory(to: Float32.self, capacity: w * h)
+
+        let x0 = Int(Double(w) * 0.25)
+        let x1 = Int(Double(w) * 0.75)
+        let y0 = Int(Double(h) * 0.20)
+        let y1 = Int(Double(h) * 0.80)
+        if x1 <= x0 || y1 <= y0 {
+            return (false, nil)
+        }
+
+        let stepX = max(1, (x1 - x0) / 24)
+        let stepY = max(1, (y1 - y0) / 24)
+
+        var validCount = 0
+        var nearCount = 0
+        var nearDepths: [Float] = []
+        nearDepths.reserveCapacity(64)
+
+        for y in stride(from: y0, to: y1, by: stepY) {
+            for x in stride(from: x0, to: x1, by: stepX) {
+                let d = depthFloats[y * w + x]
+                guard d.isFinite, d > 0.15, d <= 4.0 else { continue }
+                validCount += 1
+                if d <= 2.0 {
+                    nearCount += 1
+                    nearDepths.append(d)
+                }
+            }
+        }
+
+        guard validCount >= 40 else { return (false, nil) }
+        let nearRatio = Double(nearCount) / Double(validCount)
+        guard nearRatio >= 0.60, !nearDepths.isEmpty else { return (false, nil) }
+
+        nearDepths.sort()
+        let median = Double(nearDepths[nearDepths.count / 2])
+        return (true, median)
+    }
+    #endif
 }

@@ -44,6 +44,7 @@ public struct VisionConfiguration: Sendable {
             "television", "computer keyboard", "computer mouse", "remote control",
             "bottle", "coffee cup", "umbrella", "traffic light", "fire hydrant",
             "stop sign", "bench", "stairs", "waste container", "computer monitor",
+            "building",
         ]),
         knownHeightsM: [
             "person": 1.70,

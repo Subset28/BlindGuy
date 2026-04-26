@@ -25,6 +25,13 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         let at: Date
     }
 
+    private struct VisibilityStreak: Sendable {
+        var firstSeenAt: Date
+        var lastSeenAt: Date
+        var lastSeenFrameId: Int
+        var consecutiveFrames: Int
+    }
+
     private let speechSynth = AVSpeechSynthesizer()
     private let phraseBuilder = PhraseBuilder()
     private var distanceAssessor = DistanceConfidenceAssessor(alpha: 0.3)
@@ -42,6 +49,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private var lastSpokenBySpatialKey: [String: Date] = [:]
     private var lastSpokenSnapshotByObjectId: [String: SpokenSnapshot] = [:]
     private var lastSeenByObjectId: [String: Date] = [:]
+    private var visibilityStreakByObjectId: [String: VisibilityStreak] = [:]
     private var lastSpokenPanByClass: [String: Double] = [:]
     private var lastSpeechAt: Date?
     private var lastPeopleGroupSpokenAt: Date?
@@ -85,6 +93,9 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private let speechGateLock = NSLock()
     private var allowsFrameSpeech: Bool = false
     private static let minConfidenceForSpeech: Double = 0.62
+    /// Debounce transient one-frame detections before first spoken cue.
+    private let minStableFramesForSpeech = 4
+    private let minStableDurationForSpeech: TimeInterval = 0.24
     private static let bridgeURLKey = "blindguy.visionBridgeBaseURLString"
 
     static var defaultBridgeBaseURL: URL { URL(string: "http://127.0.0.1:8765")! }
@@ -353,6 +364,8 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
             noDetectionsAnnouncedAt = nil
         }
 
+        updateVisibilityStreaks(for: pool, frameId: frame.frameId, now: Date())
+
         if pool.isEmpty {
             consecutiveEmptyPoolFrames = min(consecutiveEmptyPoolFrames + 1, 1_000)
         } else {
@@ -407,6 +420,8 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
                 (lastSpokenByClass[speechCat]).map { now.timeIntervalSince($0) < phraseGap } ?? false
             if recentlySpokeThisPhrase {
                 // Failsafe must not bypass phrase cooldowns (otherwise "Computer" every ~2s forever).
+            } else if !passesPersistenceGate(obj: top, now: now) {
+                // Keep failsafe aligned with persistence debounce for first-time detections.
             } else if lastForcedSpeakAt == nil || now.timeIntervalSince(lastForcedSpeakAt!) >= forcedSpeakFallbackSeconds {
                 let phrase = phraseForObject(top, includeDistance: includeDistance)
                 let forced = SpeechItem(
@@ -437,6 +452,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         announceEach: Bool
     ) -> SpeechItem? {
         let now = Date()
+        if !passesPersistenceGate(obj: obj, now: now) { return nil }
         if !passesDedupeGates(obj: obj, now: now) { return nil }
 
         let isHigh = obj.priority.uppercased() == "HIGH"
@@ -613,6 +629,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         lastSpokenBySpatialKey.removeAll()
         lastSpokenByClass.removeAll()
         lastSpokenSnapshotByObjectId.removeAll()
+        visibilityStreakByObjectId.removeAll()
         dedupePolicy.reset()
         lastSpeechAt = nil
         lastPeopleGroupSpokenAt = nil
@@ -650,17 +667,66 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private func pruneState(now: Date) {
         let cap: TimeInterval = 45
         let classCap: TimeInterval = 10
+        let visibilityCap: TimeInterval = 3
         lastSpokenByObjectId = lastSpokenByObjectId.filter { now.timeIntervalSince($0.value) < cap }
         lastSpokenBySpatialKey = lastSpokenBySpatialKey.filter { now.timeIntervalSince($0.value) < cap }
         lastSpokenByClass = lastSpokenByClass.filter { now.timeIntervalSince($0.value) < classCap }
         lastSpokenSnapshotByObjectId = lastSpokenSnapshotByObjectId.filter { now.timeIntervalSince($0.value.at) < cap }
         lastSeenByObjectId = lastSeenByObjectId.filter { now.timeIntervalSince($0.value) < cap }
+        visibilityStreakByObjectId = visibilityStreakByObjectId.filter { now.timeIntervalSince($0.value.lastSeenAt) < visibilityCap }
         lastSpokenPanByClass = lastSpokenPanByClass.filter {
             if let last = lastSpokenByClass[$0.key] {
                 return now.timeIntervalSince(last) < classCap
             }
             return false
         }
+    }
+
+    private func updateVisibilityStreaks(for pool: [DetectedObjectDTO], frameId: Int, now: Date) {
+        let currentIds = Set(pool.map(\.objectId))
+        for obj in pool {
+            if let prior = visibilityStreakByObjectId[obj.objectId] {
+                let contiguous = frameId - prior.lastSeenFrameId <= 1
+                let newFirstSeen = contiguous ? prior.firstSeenAt : now
+                let newCount = contiguous ? prior.consecutiveFrames + 1 : 1
+                visibilityStreakByObjectId[obj.objectId] = VisibilityStreak(
+                    firstSeenAt: newFirstSeen,
+                    lastSeenAt: now,
+                    lastSeenFrameId: frameId,
+                    consecutiveFrames: newCount
+                )
+            } else {
+                visibilityStreakByObjectId[obj.objectId] = VisibilityStreak(
+                    firstSeenAt: now,
+                    lastSeenAt: now,
+                    lastSeenFrameId: frameId,
+                    consecutiveFrames: 1
+                )
+            }
+        }
+        // Drop streaks that are no longer in this confidence-filtered pool.
+        visibilityStreakByObjectId = visibilityStreakByObjectId.filter { currentIds.contains($0.key) }
+    }
+
+    private func passesPersistenceGate(obj: DetectedObjectDTO, now: Date) -> Bool {
+        if shouldBypassPersistenceGate(for: obj) { return true }
+        guard let streak = visibilityStreakByObjectId[obj.objectId] else { return false }
+        if streak.consecutiveFrames < minStableFramesForSpeech {
+            telemetryDrop(.dedupe)
+            return false
+        }
+        if now.timeIntervalSince(streak.firstSeenAt) < minStableDurationForSpeech {
+            telemetryDrop(.dedupe)
+            return false
+        }
+        return true
+    }
+
+    private func shouldBypassPersistenceGate(for obj: DetectedObjectDTO) -> Bool {
+        if obj.priority.uppercased() == "HIGH", obj.distanceM < 3.0 {
+            return true
+        }
+        return Self.safetyTier(for: obj.objectClass) == .critical && obj.distanceM < 3.0
     }
 
     private func passesDedupeGates(obj: DetectedObjectDTO, now: Date) -> Bool {
