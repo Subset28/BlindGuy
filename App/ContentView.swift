@@ -72,7 +72,7 @@ struct ContentView: View {
                     }
                     .padding(.horizontal, 20)
                     .padding(.top, 4)
-                    .padding(.bottom, 100)
+                    .padding(.bottom, dockBottomPadding)
                 }
             }
             // Two-finger double-tap only on the main scroll area, not the whole window — a full-screen
@@ -93,13 +93,9 @@ struct ContentView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("BlindGuy")
-                            .font(.title2.weight(.bold))
-                        Text("Realtime speech")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
+                    Text("DualSight")
+                        .font(.system(size: 32, weight: .bold))
+                        .lineLimit(1)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     HStack(spacing: 4) {
@@ -246,7 +242,9 @@ struct ContentView: View {
             }
             #endif
             
-            radarContainer
+            if app.isScanning {
+                radarContainer
+            }
         }
     }
 
@@ -268,16 +266,22 @@ struct ContentView: View {
     }
 
     private var statsStrip: some View {
-        GlassPanel(padding: 0, cornerRadius: BlindGuyTheme.cornerL) {
-            HStack(spacing: 0) {
-                StatPill(label: "Alert", value: app.threatLabel, emphasis: .high)
-                divider
-                StatPill(label: "Objects", value: "\(app.cloneCount)", emphasis: .normal)
-                divider
-                StatPill(label: "Latency", value: app.latencyLine, emphasis: .muted)
+        Group {
+            if app.isScanning {
+                GlassPanel(padding: 0, cornerRadius: BlindGuyTheme.cornerL) {
+                    HStack(spacing: 0) {
+                        StatPill(label: "Alert", value: app.threatLabel, emphasis: .high)
+                        divider
+                        StatPill(label: "Objects", value: "\(app.cloneCount)", emphasis: .normal)
+                        divider
+                        StatPill(label: "Latency", value: app.latencyLine, emphasis: .muted)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                }
+            } else {
+                EmptyView()
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
         }
     }
 
@@ -295,15 +299,16 @@ struct ContentView: View {
                     app.setScanning(!app.isScanning)
                 }
             } label: {
-                HStack(spacing: 16) {
+                VStack(spacing: 16) {
                     Image(systemName: app.isScanning ? "stop.circle.fill" : "camera.circle.fill")
-                        .font(.system(size: 32, weight: .bold))
+                        .font(.system(size: 48, weight: .bold))
                     Text(app.isScanning ? "STOP SCANNING" : "START SCANNING")
                         .font(.title2.weight(.black))
                         .tracking(1.5)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 32) // Massive tap target for accessibility
+                .frame(height: app.isScanning ? 88 : min(560, UIScreen.main.bounds.height * 1.00))
+                .padding(.vertical, app.isScanning ? 12 : 0)
             }
             .buttonStyle(PrimaryDockButtonStyle(isOn: app.isScanning, enabled: app.modelAvailable))
             .disabled(!app.modelAvailable)
@@ -318,6 +323,18 @@ struct ContentView: View {
                 .fill(.ultraThinMaterial)
                 .ignoresSafeArea(edges: .bottom)
         }
+    }
+
+    // Dock sizing helpers
+    private var dockExpandedHeight: CGFloat {
+        min(560, UIScreen.main.bounds.height * 1.00)
+    }
+
+    private var dockCollapsedHeight: CGFloat { 88 }
+
+    private var dockBottomPadding: CGFloat {
+        // Add a little extra spacing so content doesn't butt right up to the dock
+        (app.isScanning ? dockCollapsedHeight : dockExpandedHeight) + 24
     }
 }
 

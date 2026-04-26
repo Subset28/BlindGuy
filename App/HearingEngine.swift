@@ -68,7 +68,7 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
     private let maxQueuedItemsPerTier = 6
     private let itemTTLSeconds: TimeInterval = 1.8
     private let forcedSpeakFallbackSeconds: TimeInterval = 2.2
-    private let noDetectionsAnnounceSeconds: TimeInterval = 10.0
+    private let noDetectionsAnnounceSeconds: TimeInterval = 12.0
     private static let maxPanAnySpeech: Double = 0.62
     private static let maxPanDefault: Double = 0.24
     private static let maxPanImportant: Double = 0.42

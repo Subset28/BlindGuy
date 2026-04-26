@@ -122,8 +122,11 @@ extension AppViewModel {
     }
 
     var latencyLine: String {
-        if modelAvailable, isScanning, let ms = session?.lastPayload?.visionDurationMs {
-            return "\(ms) ms"
+        if modelAvailable, isScanning, let payload = session?.lastPayload {
+            // Use wall-clock round-trip from payload timestamp to now for an end-to-end latency
+            let nowMs = Int64(Date().timeIntervalSince1970 * 1000)
+            let diff = nowMs - payload.timestampMs
+            return "\(diff) ms"
         }
         if let b = hearing.lastBridgeLatencyMs, !hearing.isUsingOnDevicePayload {
             return "∼\(b) ms"
