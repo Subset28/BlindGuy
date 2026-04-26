@@ -111,6 +111,10 @@ struct RadarView: View {
         sweep * .pi / 180.0
     }
 
+    private var sweepColor: Color {
+        alertActive ? BlindGuyTheme.warmAlert : BlindGuyTheme.accent
+    }
+
     private var ringColor: Color { BlindGuyTheme.accent }
 
     /// Maps the real world 3D position to the 2D radar plane
