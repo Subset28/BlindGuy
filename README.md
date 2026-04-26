@@ -57,13 +57,6 @@ When the app runs, the phone camera feeds an on-device vision pipeline. The hear
 ### 2) Motion + urgency awareness
 
 Tracking preserves `object_id` and estimates `velocity_mps` between frames. Nearby high-priority objects are escalated while low-value clutter is deprioritized.
-
-### 3) Optional bridge (team integration)
-
-For dev and judging, a local Python service can run as a bridge (`/infer`, `/frame`, `/judge`).
-
-The product story remains **on-device inference**.
-
 ---
 
 ## Architecture (Repo Map)
