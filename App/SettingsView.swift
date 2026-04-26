@@ -24,39 +24,66 @@ struct SettingsView: View {
         NavigationStack {
             ZStack {
                 BlindGuyTheme.background.ignoresSafeArea()
+                
                 List {
                     Section {
-                        Toggle(isOn: $hearingTones) { Label("Say each object’s name", systemImage: "text.bubble.fill") }
-                        Toggle(isOn: $hearingTTS) { Label("Add distance in speech", systemImage: "ruler") }
-                        Toggle(isOn: $ttsCriticalOnly) {
-                            Label("Critical-only speech mode", systemImage: "exclamationmark.triangle")
+                        HStack(spacing: 12) {
+                            PresetButton(title: "Calm", icon: "moon.stars.fill", color: .blue) {
+                                hearingTTS = true
+                                ttsVerbosity = "low"
+                                ttsVoiceStyle = "calm"
+                            }
+                            PresetButton(title: "Active", icon: "bolt.fill", color: BlindGuyTheme.accent) {
+                                hearingTTS = true
+                                ttsVerbosity = "normal"
+                                ttsVoiceStyle = "clear"
+                            }
+                            PresetButton(title: "Alerts Only", icon: "bell.badge.fill", color: BlindGuyTheme.warmAlert) {
+                                hearingTTS = false
+                                ttsCriticalOnly = true
+                            }
                         }
-                        Picker("Distance units", selection: $distanceUnits) {
-                            Text("Metric").tag("metric")
-                            Text("Imperial").tag("imperial")
-                        }
-                        Picker("Voice", selection: $ttsVoiceStyle) {
-                            Text("Calm").tag("calm")
-                            Text("Clear").tag("clear")
-                            Text("Compact").tag("compact")
-                        }
-                        Picker("Speech amount", selection: $ttsVerbosity) {
-                            Text("Low noise").tag("low")
-                            Text("Normal").tag("normal")
-                        }
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
                     } header: {
-                        sectionHeader("Hearing", icon: "ear")
-                    } footer: {
-                        Text("When the first toggle is on, the app speaks what it sees (e.g. person, car), throttled. The second adds distance. When the first is off, only high-priority tracks get a spoken line if distance is on.")
+                        sectionHeader("Quick Presets", icon: "wand.and.stars")
                     }
 
                     Section {
-                        Toggle(isOn: $haptics) { Label("Haptics", systemImage: "iphone.radiowaves.left.and.right") }
-                        Toggle(isOn: $payloadHUD) { Label("Show stats overlay", systemImage: "chart.bar") }
+                        Toggle(isOn: $hearingTones) { Label("Identify Objects", systemImage: "text.bubble.fill") }
+                        Toggle(isOn: $hearingTTS) { Label("Speak Distance", systemImage: "ruler") }
+                        Toggle(isOn: $ttsCriticalOnly) {
+                            Label("High-Priority Only", systemImage: "exclamationmark.triangle.fill")
+                        }
                     } header: {
-                        sectionHeader("Feedback", icon: "hand.tap")
+                        sectionHeader("Hearing Engine", icon: "ear")
                     } footer: {
-                        Text("Haptics and optional on-screen count & timing.")
+                        Text("Configure how the 'Auditory Twin' communicates spatial telemetry.")
+                    }
+
+                    Section {
+                        Picker("Voice Personality", selection: $ttsVoiceStyle) {
+                            Text("Calm (Softer)").tag("calm")
+                            Text("Clear (Standard)").tag("clear")
+                            Text("Compact (Fast)").tag("compact")
+                        }
+                        Picker("Verbosity", selection: $ttsVerbosity) {
+                            Text("Essential Only").tag("low")
+                            Text("Full Scene").tag("normal")
+                        }
+                        Picker("Measurement", selection: $distanceUnits) {
+                            Text("Metric (Meters)").tag("metric")
+                            Text("Imperial (Feet)").tag("imperial")
+                        }
+                    } header: {
+                        sectionHeader("Audio Style", icon: "waveform")
+                    }
+
+                    Section {
+                        Toggle(isOn: $haptics) { Label("Tactile Feedback", systemImage: "iphone.radiowaves.left.and.right") }
+                        Toggle(isOn: $payloadHUD) { Label("Developer HUD", systemImage: "chart.bar.fill") }
+                    } header: {
+                        sectionHeader("Haptics & Visuals", icon: "hand.tap.fill")
                     }
 
                     Section {
@@ -213,8 +240,10 @@ struct SettingsView: View {
 
     private func sectionHeader(_ title: String, icon: String) -> some View {
         Label(title, systemImage: icon)
-            .font(.subheadline.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(BlindGuyTheme.accent.opacity(0.8))
+            .textCase(.uppercase)
+            .tracking(1.2)
     }
 
     private func applyBridgeURL() {
@@ -224,6 +253,36 @@ struct SettingsView: View {
         if let u = URL(string: s) {
             app.hearing.reconfigure(bridgeBase: u)
         }
+    }
+}
+
+private struct PresetButton: View {
+    var title: String
+    var icon: String
+    var color: Color
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.title3.weight(.bold))
+                Text(title)
+                    .font(.caption2.weight(.bold))
+            }
+            .foregroundStyle(color)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 12)
+            .background {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(color.opacity(0.1))
+            }
+            .overlay {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(color.opacity(0.2), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }
 

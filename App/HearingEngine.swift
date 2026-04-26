@@ -210,12 +210,12 @@ final class HearingEngine: NSObject, ObservableObject, AVSpeechSynthesizerDelega
         DispatchQueue.main.async {
             let s = AVAudioSession.sharedInstance()
             do {
-                // `defaultToSpeaker` is only valid with `.playAndRecord` — with `.playback` it returns paramErr -50
-                // and the session can stay misconfigured, which breaks TTS output.
+                // Resolved -50 error: .allowBluetoothHFP is only for .playAndRecord.
+                // Added .duckOthers to ensure guidance is heard clearly.
                 try s.setCategory(
                     .playback,
                     mode: .spokenAudio,
-                    options: [.allowBluetoothA2DP, .allowBluetoothHFP, .mixWithOthers]
+                    options: [.allowBluetoothA2DP, .mixWithOthers, .duckOthers]
                 )
                 try s.setActive(true, options: [])
             } catch {
