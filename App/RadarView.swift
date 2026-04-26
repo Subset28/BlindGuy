@@ -14,117 +14,138 @@ struct RadarView: View {
     var body: some View {
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
-            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2 + (size * 0.15))
+            let maxRadius = size * 0.75
             
             ZStack {
-                // ── Background Rings ─────────────────────────────────────────
-                ForEach(1...3, id: \.self) { i in
-                    Circle()
-                        .stroke(ringColor.opacity(0.08), lineWidth: 1)
-                        .frame(width: size * CGFloat(Double(i) / 3.0), height: size * CGFloat(Double(i) / 3.0))
-                }
-
-                // ── Crosshair axes ───────────────────────────────────────────
-                Path { p in
-                    p.move(to: CGPoint(x: center.x, y: center.y - size/2))
-                    p.addLine(to: CGPoint(x: center.x, y: center.y + size/2))
-                    p.move(to: CGPoint(x: center.x - size/2, y: center.y))
-                    p.addLine(to: CGPoint(x: center.x + size/2, y: center.y))
-                }
-                .stroke(ringColor.opacity(0.1), lineWidth: 1)
-
-                // ── Sweep arm ───────────────────────────────────────────────
-                ZStack {
-                    Circle()
-                        .trim(from: 0, to: 0.18)
-                        .fill(
-                            AngularGradient(
-                                colors: [sweepColor.opacity(0.35), sweepColor.opacity(0)],
-                                center: .center,
-                                startAngle: .degrees(0),
-                                endAngle: .degrees(65)
-                            )
+                // ── FOV Cone Background ──────────────────────────────────────
+                ConeShape(angle: 100)
+                    .fill(
+                        RadialGradient(
+                            colors: [sweepColor.opacity(0.08), .clear],
+                            center: .bottom,
+                            startRadius: 0,
+                            endRadius: maxRadius
                         )
-                        .frame(width: size, height: size)
-                        .rotationEffect(.degrees(sweep))
+                    )
+                    .frame(width: maxRadius * 2, height: maxRadius)
+                    .position(x: center.x, y: center.y - (maxRadius/2))
+                
+                // ── FOV Grid Lines ───────────────────────────────────────────
+                ForEach([0.33, 0.66, 1.0], id: \.self) { fraction in
+                    ConeShape(angle: 100)
+                        .stroke(ringColor.opacity(0.12), lineWidth: 1)
+                        .frame(width: maxRadius * 2 * fraction, height: maxRadius * fraction)
+                        .position(x: center.x, y: center.y - (maxRadius * fraction / 2))
+                }
+
+                // ── Center Axis ──────────────────────────────────────────────
+                Path { p in
+                    p.move(to: center)
+                    p.addLine(to: CGPoint(x: center.x, y: center.y - maxRadius))
+                }
+                .stroke(ringColor.opacity(0.1), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+                // ── Sweep arm (Scanner beam) ─────────────────────────────────
+                ZStack {
+                    Path { p in
+                        p.move(to: center)
+                        p.addLine(to: CGPoint(
+                            x: center.x + CGFloat(sin(sweepRadians)) * maxRadius,
+                            y: center.y - CGFloat(cos(sweepRadians)) * maxRadius
+                        ))
+                    }
+                    .stroke(
+                        LinearGradient(
+                            colors: [sweepColor.opacity(0.6), .clear],
+                            startPoint: .init(x: 0.5, y: 1.0),
+                            endPoint: .init(x: 0.5, y: 0.0)
+                        ),
+                        lineWidth: 3
+                    )
                 }
                 .onAppear {
-                    withAnimation(.linear(duration: 3.2).repeatForever(autoreverses: false)) {
-                        sweep = 360
+                    // Oscillating sweep instead of 360 circle
+                    withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                        sweep = 50 // Sweeps from -50 to +50 degrees
                     }
                 }
-
-                // ── Outgoing ping ────────────────────
-                Circle()
-                    .stroke(sweepColor.opacity(objects.isEmpty ? 0 : pingOpacity), lineWidth: 1.5)
-                    .frame(width: size * pingScale, height: size * pingScale)
-                    .onAppear {
-                        withAnimation(.easeOut(duration: 2.0).repeatForever(autoreverses: false)) {
-                            pingScale = 1.0
-                            pingOpacity = 0
-                        }
-                    }
 
                 // ── Object blips ─────────────────────────────────────────────
-                // Render true spatial blips based on actual Pan and Distance metrics
                 ForEach(objects, id: \.objectId) { obj in
-                    Circle()
-                        .fill(sweepColor)
-                        .frame(width: 8, height: 8)
-                        .shadow(color: sweepColor.opacity(0.8), radius: 6)
-                        .shadow(color: sweepColor.opacity(0.4), radius: 12)
-                        .position(position(for: obj, in: size, center: center))
+                    let pos = position(for: obj, in: maxRadius, center: center)
+                    ZStack {
+                        Circle()
+                            .fill(sweepColor)
+                            .frame(width: 10, height: 10)
+                            .shadow(color: sweepColor.opacity(0.8), radius: 6)
+                            .shadow(color: sweepColor.opacity(0.4), radius: 12)
+                        
+                        // Distance label for high priority
+                        if obj.priority.uppercased() == "HIGH" {
+                            Text(String(format: "%.1fm", obj.distanceM))
+                                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                                .foregroundStyle(sweepColor)
+                                .offset(y: 14)
+                        }
+                    }
+                    .position(pos)
                 }
 
-                // ── Center user dot ──────────────────────────────────────────
+                // ── User position (Origin) ───────────────────────────────────
                 Circle()
                     .fill(sweepColor)
-                    .frame(width: 12, height: 12)
+                    .frame(width: 14, height: 14)
                     .shadow(color: sweepColor.opacity(0.6), radius: 12)
-
-                // ── Alert ring flash ─────────────────────────────────────────
-                if alertActive {
-                    Circle()
-                        .stroke(BlindGuyTheme.warmAlert.opacity(0.5), lineWidth: 2)
-                        .frame(width: size * 0.92, height: size * 0.92)
-                        .animation(
-                            .easeInOut(duration: 0.4).repeatForever(autoreverses: true),
-                            value: alertActive
-                        )
-                }
+                    .position(center)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Spatial radar")
+        .accessibilityLabel("Spatial field of view")
     }
 
     // MARK: - Helpers
 
-    private var sweepColor: Color {
-        alertActive ? BlindGuyTheme.warmAlert : BlindGuyTheme.accent
+    private var sweepRadians: Double {
+        sweep * .pi / 180.0
     }
 
     private var ringColor: Color { BlindGuyTheme.accent }
 
     /// Maps the real world 3D position to the 2D radar plane
-    private func position(for obj: DetectedObjectDTO, in size: CGFloat, center: CGPoint) -> CGPoint {
-        // Pan goes from -1 (far left) to +1 (far right).
-        // Let's map that to an angle arc of -38° to +38° relative to top-center (0°)
-        let angleDegrees = obj.panValue * 38.0
+    private func position(for obj: DetectedObjectDTO, in maxRadius: CGFloat, center: CGPoint) -> CGPoint {
+        // Map pan to a wider arc (-50° to +50°)
+        let angleDegrees = obj.panValue * 50.0
         let angleRadians = angleDegrees * .pi / 180.0
         
-        // Distance mapping: cap the radar visual at 7.0 meters.
+        // Non-linear distance mapping: emphasize closer objects
+        // (y = sqrt(x) makes the center area larger for closer objects)
         let maxDist = 7.0
-        let normDist = min(max(obj.distanceM, 0.3), maxDist) / maxDist
+        let rawNorm = min(max(obj.distanceM, 0.3), maxDist) / maxDist
+        let normDist = sqrt(rawNorm) 
         
-        let maxRadius = (size / 2) * 0.95
-        let radius = maxRadius * normDist
+        let radius = maxRadius * CGFloat(normDist)
         
-        // Trigonometry: 0 degrees is straight UP (y decreases)
         let x = center.x + CGFloat(sin(angleRadians)) * radius
         let y = center.y - CGFloat(cos(angleRadians)) * radius
         
         return CGPoint(x: x, y: y)
+    }
+}
+
+struct ConeShape: Shape {
+    var angle: Double
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let center = CGPoint(x: rect.midX, y: rect.maxY)
+        let radius = rect.height
+        let startAngle = Angle(degrees: 270 - (angle/2))
+        let endAngle = Angle(degrees: 270 + (angle/2))
+        
+        p.move(to: center)
+        p.addArc(center: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        p.closeSubpath()
+        return p
     }
 }
