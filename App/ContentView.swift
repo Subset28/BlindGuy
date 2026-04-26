@@ -206,50 +206,48 @@ struct ContentView: View {
 
     @ViewBuilder
     private var visualStage: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 20) {
             #if os(iOS)
             if app.modelAvailable, app.isScanning, let session = app.captureSessionForPreview {
-                HStack {
-                    Text("Camera")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Label("LIVE", systemImage: "record.circle.fill")
-                        .font(.caption.weight(.bold))
-                        .foregroundStyle(BlindGuyTheme.warmAlert)
-                }
-                CameraFeedPreview(session: session)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 220, idealHeight: 300)
-                    .background(Color.black)
-                    .clipShape(RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
-                            .strokeBorder(LinearGradient(
-                                colors: [BlindGuyTheme.accent.opacity(0.5), .white.opacity(0.08)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ), lineWidth: 1)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Camera feed")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Label("LIVE", systemImage: "record.circle.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(BlindGuyTheme.warmAlert)
                     }
-                    .shadow(color: BlindGuyTheme.accent.opacity(0.12), radius: 24, y: 12)
-            } else {
-                radarPlaceholder
+                    CameraFeedPreview(session: session)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 220)
+                        .background(Color.black)
+                        .clipShape(RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
+                                .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
+                        }
+                }
             }
-            #else
-            radarPlaceholder
             #endif
+            
+            radarContainer
         }
     }
 
-    private var radarPlaceholder: some View {
+    private var radarContainer: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Field view")
+            Text(app.isScanning ? "Spatial field" : "Radar (Idle)")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
             ZStack {
                 RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous)
                     .fill(Color.white.opacity(0.04))
-                RadarView()
+                RadarView(
+                    objects: app.session?.lastPayload?.objects ?? [],
+                    alertActive: hearing.alertActive
+                )
             }
             .frame(height: 280)
             .clipShape(RoundedRectangle(cornerRadius: BlindGuyTheme.cornerL, style: .continuous))

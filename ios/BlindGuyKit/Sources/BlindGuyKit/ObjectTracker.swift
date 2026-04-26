@@ -5,6 +5,8 @@ struct TrackState {
     var className: String
     var xCenterNorm: Double
     var yCenterNorm: Double
+    var widthNorm: Double
+    var heightNorm: Double
     var distanceM: Double
     var updatedAt: TimeInterval
     var lastSeenFrame: Int
@@ -57,6 +59,8 @@ final class ObjectTracker {
                     className: d.className,
                     xCenterNorm: d.xCenterNorm,
                     yCenterNorm: d.yCenterNorm,
+                    widthNorm: d.widthNorm,
+                    heightNorm: d.heightNorm,
                     distanceM: d.distanceM,
                     updatedAt: now,
                     lastSeenFrame: frameIndex
@@ -97,6 +101,8 @@ final class ObjectTracker {
                     className: d.className,
                     xCenterNorm: d.xCenterNorm,
                     yCenterNorm: d.yCenterNorm,
+                    widthNorm: d.widthNorm,
+                    heightNorm: d.heightNorm,
                     distanceM: d.distanceM,
                     updatedAt: now,
                     lastSeenFrame: frameIndex
@@ -104,6 +110,31 @@ final class ObjectTracker {
                 out.append(td)
             }
         }
+
+        // Export alive "ghost" tracks that weren't detected in this exact frame
+        // so the downstream Hearing Engine doesn't see them flicker out of existence.
+        for (id, state) in tracks {
+            if !usedIds.contains(id) {
+                if now - state.updatedAt <= maxGap {
+                    out.append(
+                        TrackedDetection(
+                            className: state.className,
+                            confidence: 0.0, // Mark as ghost
+                            xCenterNorm: state.xCenterNorm,
+                            yCenterNorm: state.yCenterNorm,
+                            widthNorm: state.widthNorm,
+                            heightNorm: state.heightNorm,
+                            distanceM: state.distanceM,
+                            panValue: VisionGeometry.panValue(xCenterNorm: state.xCenterNorm),
+                            objectId: state.objectId,
+                            velocityMps: 0.0, // Stagnant ghost
+                            priority: state.distanceM < highPriorityDistanceM ? "HIGH" : "NORMAL"
+                        )
+                    )
+                }
+            }
+        }
+
         return out
     }
 

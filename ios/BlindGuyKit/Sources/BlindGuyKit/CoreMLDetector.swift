@@ -106,7 +106,54 @@ public final class CoreMLDetector: @unchecked Sendable {
                 )
             )
         }
-        return out
+
+        // Apply strict Non-Maximum Suppression (NMS) to eliminate duplicate bounding boxes
+        // that YOLO sometimes produces around the exact same physical object.
+        return applyNMS(out, iouThreshold: 0.40)
+    }
+
+    /// Custom IoU-based NMS for Swift (Vision does its own but often leaks duplicates)
+    private func applyNMS(_ detections: [RawDetection], iouThreshold: Double) -> [RawDetection] {
+        let sorted = detections.sorted { $0.confidence > $1.confidence }
+        var kept: [RawDetection] = []
+        var suppressed = Set<Int>()
+
+        for i in 0..<sorted.count {
+            if suppressed.contains(i) { continue }
+            let base = sorted[i]
+            kept.append(base)
+
+            for j in (i + 1)..<sorted.count {
+                if suppressed.contains(j) { continue }
+                if iou(base, sorted[j]) > iouThreshold {
+                    suppressed.insert(j)
+                }
+            }
+        }
+        return kept
+    }
+
+    private func iou(_ a: RawDetection, _ b: RawDetection) -> Double {
+        let aL = a.xCenterNorm - a.widthNorm / 2
+        let aR = a.xCenterNorm + a.widthNorm / 2
+        let aT = a.yCenterNorm - a.heightNorm / 2
+        let aB = a.yCenterNorm + a.heightNorm / 2
+
+        let bL = b.xCenterNorm - b.widthNorm / 2
+        let bR = b.xCenterNorm + b.widthNorm / 2
+        let bT = b.yCenterNorm - b.heightNorm / 2
+        let bB = b.yCenterNorm + b.heightNorm / 2
+
+        let iL = max(aL, bL)
+        let iR = min(aR, bR)
+        let iT = max(aT, bT)
+        let iB = min(aB, bB)
+
+        let iW = max(0, iR - iL)
+        let iH = max(0, iB - iT)
+        let intersection = iW * iH
+        let union = (a.widthNorm * a.heightNorm) + (b.widthNorm * b.heightNorm) - intersection
+        return intersection / union
     }
 
     private func labelString(from identifier: String) -> String {
