@@ -300,9 +300,9 @@ struct ContentView: View {
                 }
             } label: {
                 VStack(spacing: 16) {
-                    Image(systemName: app.isScanning ? "stop.circle.fill" : "camera.circle.fill")
+                    Image(systemName: app.isScanning ? "eye.slash.circle.fill" : "eye.circle.fill")
                         .font(.system(size: 48, weight: .bold))
-                    Text(app.isScanning ? "STOP SCANNING" : "START SCANNING")
+                    Text(app.isScanning ? "DEACTIVATE CLONE" : "SYNC EYES")
                         .font(.title2.weight(.black))
                         .tracking(1.5)
                 }
@@ -312,7 +312,7 @@ struct ContentView: View {
             }
             .buttonStyle(PrimaryDockButtonStyle(isOn: app.isScanning, enabled: app.modelAvailable))
             .disabled(!app.modelAvailable)
-            .accessibilityLabel(app.isScanning ? "Stop scanning" : "Start scanning")
+            .accessibilityLabel(app.isScanning ? "Deactivate clone" : "Sync eyes")
             .accessibilityHint("Double tap to toggle the vision engine. When on, the app will speak nearby objects automatically.")
         }
         .padding(.horizontal, 20)

@@ -6,22 +6,22 @@ struct OnboardingView: View {
 
     private let pages: [OnboardingPage] = [
         OnboardingPage(
-            title: "What BlindGuy detects",
-            description: "People, vehicles, bikes, dogs, traffic lights, signs, benches, and selected everyday obstacles from the camera view.",
-            icon: "viewfinder.circle",
+            title: "Your Auditory Twin",
+            description: "DualSight clones your eyes into a digital duplicate. This 'Auditory Twin' perceives the world and speaks what it sees.",
+            icon: "person.badge.shield.checkmark.fill",
+            color: BlindGuyTheme.accent
+        ),
+        OnboardingPage(
+            title: "Ocular Synchronization",
+            description: "We map the 3D space in front of you—cars, people, obstacles—and sync that reality directly to your hearing engine.",
+            icon: "eye.trianglebadge.exclamationmark.fill",
             color: BlindGuyTheme.info
         ),
         OnboardingPage(
-            title: "Distance is estimated",
-            description: "Distance is approximate and may vary by lighting, motion, and camera angle. BlindGuy is assistive and does not replace a cane or guide dog.",
-            icon: "ruler",
+            title: "Neural Audio Link",
+            description: "Your clone prioritizes threats and speaks through a high-speed audio link. It doesn't just see; it understands urgency.",
+            icon: "waveform.path.ecg",
             color: BlindGuyTheme.warmAlert
-        ),
-        OnboardingPage(
-            title: "How to read speech output",
-            description: "High priority objects are spoken first. Distance phrases depend on confidence. Silence usually means no obstacles are currently detected.",
-            icon: "text.bubble",
-            color: BlindGuyTheme.accent
         ),
     ]
 
@@ -64,7 +64,7 @@ struct OnboardingView: View {
                         withAnimation(.easeOut(duration: 0.25)) { shouldShowOnboarding = false }
                     }
                 } label: {
-                    Text(currentPage == pages.count - 1 ? "Get started" : "Continue")
+                    Text(currentPage == pages.count - 1 ? "Initialize Clone" : "Continue Sync")
                         .font(.headline)
                         .fontWeight(.semibold)
                         .foregroundStyle(currentPage == pages.count - 1 ? Color.black : Color.primary)

@@ -66,11 +66,11 @@ final class AppViewModel: ObservableObject {
             camera?.stop()
             camera = nil
             session?.clearPayload()
-            hearing.speakImmediate("Scanning stopped")
+            hearing.speakImmediate("Clone deactivated")
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             return
         }
-        hearing.speakImmediate("Scanning started")
+        hearing.speakImmediate("Ocular sync active")
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         #if os(iOS)
         guard let s = session else { return }
