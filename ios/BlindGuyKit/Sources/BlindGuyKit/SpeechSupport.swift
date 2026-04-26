@@ -341,33 +341,29 @@ public struct PhraseBuilder: PhraseBuilding, Sendable {
             }
         case .high:
             if imperial {
-                if d < 1.0 { return "less than 4 feet away" }
-                return "about \(ftRounded) feet away"
+                if d < 1.0 { return "less than 4 feet" }
+                return "about \(ftRounded) feet"
             }
             // LiDAR-quality: speak to one decimal for < 3m, whole meters beyond
             if d < 1.0 {
-                return "less than one meter away"
+                return "less than 1 meter"
             } else if d < 3.0 {
                 let tenths = (d * 10).rounded() / 10
                 var s = String(format: "%.1f", tenths)
-                if s.hasSuffix(".0") {
-                    s = String(s.dropLast(2))
-                }
-                return "about \(s) meters away"
+                if s.hasSuffix(".0") { s = String(s.dropLast(2)) }
+                return "about \(s) meters"
             } else {
                 let rounded = Int(d.rounded())
-                return rounded == 1
-                    ? "about 1 meter away"
-                    : "about \(rounded) meters away"
+                return rounded == 1 ? "about 1 meter" : "about \(rounded) meters"
             }
         }
     }
 
     private func direction(_ pan: Double) -> String {
         switch pan {
-        case ..<(-0.45): return "to the left"
-        case 0.45...: return "to the right"
-        default: return "ahead"
+        case ..<(-0.45): return "Left"
+        case 0.45...: return "Right"
+        default: return "Center"
         }
     }
 
