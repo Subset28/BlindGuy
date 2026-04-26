@@ -56,7 +56,7 @@ When the app runs, the phone camera feeds an on-device vision pipeline. The hear
 
 ### 2) Motion + urgency awareness
 
-**Tracking preserves `object_id` and estimates `velocity_mps` between frames. Nearby high-priority objects are escalated while low-value clutter is deprioritized**.
+Tracking preserves `object_id` and estimates `velocity_mps` between frames. Nearby high-priority objects are escalated while low-value clutter is deprioritized.
 ---
 
 ## Architecture (Repo Map)
@@ -72,55 +72,4 @@ When the app runs, the phone camera feeds an on-device vision pipeline. The hear
 
 Distance is monocular estimation using known object sizes and camera geometry. Pan is normalized to `[-1, 1]` and used by hearing for left/right phrases, threat ranking, and side suppression.
 
-This is assistive estimation, not absolute measurement.
-
 ---
-
-## Testing
-
-Run tests:
-
-```bash
-pytest -q
-```
-
-Built-in smoke/contract checks:
-
-```bash
-PYTHONPATH=src python3 -m visual_engine.testing_engine
-```
-
-Simulation scenarios:
-
-```bash
-PYTHONPATH=src python3 -m visual_engine.simulation --scenario lens_streak
-PYTHONPATH=src python3 -m visual_engine.simulation --scenario lens_sharp
-# slow: requires ultralytics + yolov8m-oiv7 download
-PYTHONPATH=src python3 -m visual_engine.simulation --scenario vision_random --frames 1
-```
-
----
-
-## For Judges / Reviewers
-
-Start here for a fast technical walkthrough:
-
-- **iOS vision runtime:** `ios/BlindGuyKit/Sources/BlindGuyKit/CoreMLDetector.swift`
-- **Hearing prioritization + dedupe:** `App/HearingEngine.swift`
-- **Python reference inference:** `src/visual_engine/vision_engine.py`
-- **Contract shape:** `docs/contract.example.json`
-- **Product + engineering decisions:** `PRD.md`
-
----
-
-## Safety Note
-
-BlindGuy is assistive software and does **not** replace a cane, guide dog, orientation/mobility training, or situational awareness.
-
----
-
-## Contribution Notes
-
-Development is trunk-based on `main`. See `CONTRIBUTING.md`.
-
-For vision changes, append an entry to `docs/VISION_BRANCH_LOG.md` in the same commit when possible.
